@@ -42,7 +42,6 @@
         button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .hidden { display: none; }
         
-        /* TEXTO DE LEITURA - FONTE GRANDE E ADEQUADA */
         .texto-leitura {
             background: #f8fafc;
             border-radius: 24px;
@@ -90,8 +89,15 @@
             margin-bottom: 20px;
         }
         
-        .erro-acesso { text-align: center; padding: 50px; background: white; border-radius: 40px; max-width: 500px; margin: 20px auto; }
-        .erro-acesso h2 { color: #e53e3e; margin-bottom: 20px; }
+        .aviso-admin {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            color: #92400e;
+        }
         
         .palavra { 
             display: inline-block; 
@@ -103,7 +109,6 @@
             line-height: 1.8;
         }
         .palavra-correta { background: #bbf7d0; color: #166534; }
-        .palavra-em-verificacao { background: #fef9c3; color: #854d0e; }
         
         .btn-gravando {
             background: #ef4444;
@@ -143,6 +148,7 @@
         }
         .msg-sucesso { background: #bbf7d0; color: #166534; }
         .msg-erro { background: #fee2e2; color: #991b1b; }
+        .msg-info { background: #dbeafe; color: #1e40af; }
         
         .palavras-dificeis-container {
             margin-top: 20px;
@@ -186,6 +192,9 @@
     const turmaId = urlParams.get('turma_id');
     const escolaId = urlParams.get('escola_id');
     const modoTeste = urlParams.get('modo_teste') === 'true';
+    
+    // MODO VISUALIZAÇÃO: se não tem parâmetros, entra em modo administrador/demonstração
+    const modoVisualizacao = (!jogoSlug || !turmaId || !alunoId);
 
     let jogoAtivo = false;
     let jogoId = null;
@@ -244,8 +253,6 @@
             recognition.lang = 'pt-BR';
             recognition.continuous = true;
             recognition.interimResults = true;
-            
-            let palavrasAtualizadas = [];
             
             recognition.onresult = (event) => {
                 for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -335,14 +342,19 @@
         document.getElementById('telaLeitura').classList.add('hidden');
         document.getElementById('telaResultado').classList.remove('hidden');
         
-        salvarResultado(ppm, precisao, tempoTotal, nivel, acertos, palavrasTexto.length - acertos, palavrasErradas);
+        // Se NÃO for modo visualização, salva o resultado
+        if (!modoVisualizacao && !modoTeste) {
+            salvarResultado(ppm, precisao, tempoTotal, nivel, acertos, palavrasTexto.length - acertos, palavrasErradas);
+        } else {
+            mostrarMensagem('🔧 Modo Visualização - Nenhum dado foi salvo', 'info');
+        }
     }
 
     function mostrarMensagem(texto, tipo) {
         const msgDiv = document.getElementById('msgSalvoResultado');
         if (msgDiv) {
             msgDiv.innerHTML = texto;
-            msgDiv.className = `msg-salvo ${tipo === 'sucesso' ? 'msg-sucesso' : 'msg-erro'}`;
+            msgDiv.className = `msg-salvo ${tipo === 'sucesso' ? 'msg-sucesso' : tipo === 'info' ? 'msg-info' : 'msg-erro'}`;
             msgDiv.classList.remove('hidden');
             setTimeout(() => {
                 msgDiv.classList.add('hidden');
@@ -352,11 +364,6 @@
 
     async function salvarResultado(ppm, precisao, tempo, nivel, acertos, erros, palavrasDificeis) {
         statusSalvo = true;
-        
-        if (modoTeste) {
-            mostrarMensagem('🔧 Modo teste - dados não salvos', 'erro');
-            return;
-        }
         
         if (!alunoId) {
             mostrarMensagem('⚠️ Aluno não identificado - dados não salvos', 'erro');
@@ -405,6 +412,9 @@
         if (btnParar) btnParar.disabled = true;
         document.getElementById('timerDisplay').textContent = '00:00';
         document.getElementById('statusMicrofone').innerHTML = '';
+        
+        // Reset visual do texto
+        atualizarFeedbackVisual([]);
     }
 
     async function iniciarJogo() {
@@ -425,7 +435,11 @@
     }
 
     async function verificarAcesso() {
-        if (modoTeste) return true;
+        // Se for modo visualização (ADMIN testando), libera sem verificação
+        if (modoVisualizacao || modoTeste) {
+            return true;
+        }
+        
         if (!jogoSlug || !turmaId) {
             mostrarErro('❌ Link inválido. Faltam parâmetros.');
             return false;
@@ -468,22 +482,29 @@
     }
 
     function finalizarEVoltar() {
-        window.location.href = 'https://saci-sabido.vercel.app';
+        if (modoVisualizacao) {
+            // Se for admin, apenas recarrega a página
+            window.location.reload();
+        } else {
+            window.location.href = 'https://saci-sabido.vercel.app';
+        }
     }
 
     async function carregarJogo() {
         const acesso = await verificarAcesso();
-        if (!acesso && !modoTeste) return;
+        if (!acesso && !modoVisualizacao && !modoTeste) return;
         
         document.getElementById('app').innerHTML = `
             <div class="container">
                 <div id="telaInicial">
                     <h1>📖 Fluência Leitora</h1>
                     <p>Leia o texto em voz alta com calma e clareza</p>
+                    ${modoVisualizacao ? '<div class="aviso-admin">🔧 MODO VISUALIZAÇÃO - Os dados NÃO serão salvos. Use os parâmetros na URL para testar com aluno real.</div>' : ''}
+                    ${modoTeste ? '<div class="aviso-admin">🔧 MODO TESTE - Os dados NÃO serão salvos no banco.</div>' : ''}
                     <div class="info-sesi">📚 Habilidade: EF35LP09 - Ler com fluência e precisão</div>
                     <div class="texto-leitura">${textoParaLer}</div>
                     <button id="btnComecar">🚀 INICIAR LEITURA</button>
-                    <div style="margin-top: 15px; font-size: 12px;">${modoTeste ? '🔧 Modo teste' : '✅ Conectado'}</div>
+                    <div style="margin-top: 15px; font-size: 12px;">${modoVisualizacao ? '👁️ Modo Visualização' : (modoTeste ? '🔧 Modo teste' : '✅ Conectado')}</div>
                 </div>
                 
                 <div id="telaLeitura" class="hidden">
