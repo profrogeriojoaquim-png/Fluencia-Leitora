@@ -47,7 +47,7 @@
             border-radius: 24px;
             padding: 32px;
             font-size: 26px;
-            line-height: 1.8;
+            line-height: 1.8;          /* fixo, não muda */
             text-align: left;
             margin: 20px 0;
             font-family: 'Georgia', 'Times New Roman', Times, serif;
@@ -56,6 +56,22 @@
             letter-spacing: 0.5px;
             color: #1e293b;
             border: 1px solid #e2e8f0;
+        }
+        
+        /* Cada palavra – estilo consistente que não altera o espaçamento */
+        .palavra { 
+            display: inline-block; 
+            margin: 0 2px;           /* antes era 4px 3px - reduzido para não causar quebra */
+            padding: 2px 4px; 
+            border-radius: 8px; 
+            transition: background-color 0.1s ease;
+            font-size: 26px;
+            line-height: 1.8;        /* mesmo do pai */
+            white-space: normal;
+        }
+        .palavra-correta { 
+            background: #bbf7d0; 
+            color: #166534; 
         }
         
         .timer {
@@ -98,17 +114,6 @@
             font-size: 14px;
             color: #92400e;
         }
-        
-        .palavra { 
-            display: inline-block; 
-            margin: 4px 3px; 
-            padding: 4px 8px; 
-            border-radius: 8px; 
-            transition: all 0.2s;
-            font-size: 26px;
-            line-height: 1.8;
-        }
-        .palavra-correta { background: #bbf7d0; color: #166534; }
         
         .btn-gravando {
             background: #ef4444;
@@ -205,11 +210,21 @@
     let palavrasTexto = [];
     let palavrasOriginais = [];
 
+    // Função auxiliar: normaliza texto (minúsculas, remove pontuação, espaços extras)
+    function normalizarTexto(txt) {
+        return txt
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+            .replace(/[.,!?;:()"']/g, '') // remove pontuação
+            .replace(/\s+/g, ' ') // espaços múltiplos vira um
+            .trim();
+    }
+
     async function carregarTexto() {
         if (modoVisualizacao || modoTeste) {
             textoParaLer = "O pequeno Saci Sabido encontrou um mistério na mata. Ele usou sua inteligência para resolver o problema sem usar o cachimbo, apenas com sabedoria e envolvimento.";
-            palavrasTexto = textoParaLer.toLowerCase().split(' ');
             palavrasOriginais = textoParaLer.split(' ');
+            palavrasTexto = normalizarTexto(textoParaLer).split(' ');
             return;
         }
         
@@ -227,22 +242,24 @@
                 textoParaLer = data.texto_avaliacao;
                 document.title = `Saci Sabido - ${data.titulo}`;
             }
-            palavrasTexto = textoParaLer.toLowerCase().split(' ');
             palavrasOriginais = textoParaLer.split(' ');
+            palavrasTexto = normalizarTexto(textoParaLer).split(' ');
         } catch(e) {
             console.error('Erro:', e);
             textoParaLer = "Erro ao carregar texto. Tente novamente.";
+            palavrasOriginais = textoParaLer.split(' ');
+            palavrasTexto = normalizarTexto(textoParaLer).split(' ');
         }
     }
 
-    function atualizarFeedbackVisual(palavrasLidas) {
+    function atualizarFeedbackVisual(palavrasLidasNorm) {
         const container = document.getElementById('textoComPalavras');
         if (!container) return;
         
         let html = '';
         palavrasOriginais.forEach((palavra, idx) => {
-            const palavraLimpa = palavrasTexto[idx].replace(/[.,!?;]/g, '');
-            const foiLida = palavrasLidas.includes(palavraLimpa);
+            const palavraOriginalNorm = palavrasTexto[idx]; // já normalizado
+            const foiLida = palavrasLidasNorm.includes(palavraOriginalNorm);
             const classe = foiLida ? 'palavra-correta' : '';
             html += `<span class="palavra ${classe}">${palavra}</span> `;
         });
@@ -287,8 +304,10 @@
                         transcricaoFinal += event.results[i][0].transcript + " ";
                     }
                 }
-                const palavrasLidas = transcricaoFinal.toLowerCase().split(' ');
-                atualizarFeedbackVisual(palavrasLidas);
+                // Normaliza as palavras reconhecidas e atualiza o feedback visual
+                const textoNorm = normalizarTexto(transcricaoFinal);
+                const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
+                atualizarFeedbackVisual(palavrasLidasNorm);
                 document.getElementById('statusMicrofone').innerHTML = '🎤 Leitura em andamento... Fale pausadamente';
             };
             
@@ -330,14 +349,14 @@
     }
 
     function processarResultado(tempoTotal) {
-        const palavrasLidas = transcricaoFinal.toLowerCase().split(' ');
+        const textoNorm = normalizarTexto(transcricaoFinal);
+        const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
         
         let acertos = 0;
         const palavrasErradas = [];
         
-        palavrasTexto.forEach((palavra, idx) => {
-            const palavraLimpa = palavra.replace(/[.,!?;]/g, '');
-            if (palavrasLidas.includes(palavraLimpa)) {
+        palavrasTexto.forEach((palavraNorm, idx) => {
+            if (palavrasLidasNorm.includes(palavraNorm)) {
                 acertos++;
             } else {
                 if (!palavrasErradas.includes(palavrasOriginais[idx])) {
@@ -411,12 +430,13 @@
         try {
             const { error } = await supabaseClient.from('resultados_fluencia').insert([dados]);
             if (error) {
-                console.error('Erro:', error);
+                console.error('Erro ao salvar:', error);
                 mostrarMensagem(`❌ Erro ao salvar: ${error.message}`, 'erro');
             } else {
                 mostrarMensagem('✅ Resultado salvo com sucesso!', 'sucesso');
             }
         } catch(e) {
+            console.error(e);
             mostrarMensagem('❌ Erro ao conectar com o servidor', 'erro');
         }
     }
@@ -437,7 +457,15 @@
         if (btnParar) btnParar.disabled = true;
         document.getElementById('timerDisplay').textContent = '00:00';
         document.getElementById('statusMicrofone').innerHTML = '';
-        atualizarFeedbackVisual([]);
+        // restore original text without highlights
+        const container = document.getElementById('textoComPalavras');
+        if (container) {
+            let html = '';
+            palavrasOriginais.forEach((palavra) => {
+                html += `<span class="palavra">${palavra}</span> `;
+            });
+            container.innerHTML = html;
+        }
     }
 
     async function iniciarJogo() {
@@ -445,7 +473,15 @@
         document.getElementById('telaInicial').classList.add('hidden');
         document.getElementById('telaLeitura').classList.remove('hidden');
         
-        atualizarFeedbackVisual([]);
+        // reset visual para sem destaques
+        const container = document.getElementById('textoComPalavras');
+        if (container) {
+            let html = '';
+            palavrasOriginais.forEach((palavra) => {
+                html += `<span class="palavra">${palavra}</span> `;
+            });
+            container.innerHTML = html;
+        }
         
         try {
             await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -463,7 +499,6 @@
             const params = new URLSearchParams(window.location.search);
             const turmaId = params.get('turma_id');
             const alunoId = params.get('aluno_id');
-            
             if (turmaId && alunoId) {
                 window.location.href = `https://saci-sabido.vercel.app/aluno/turma/${turmaId}/jogos/${alunoId}`;
             } else {
