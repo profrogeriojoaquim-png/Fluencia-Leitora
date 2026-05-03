@@ -18,64 +18,93 @@
         .container {
             background: white;
             border-radius: 40px;
-            padding: 24px;
-            max-width: 900px;
+            padding: 32px;
+            max-width: 1000px;
             width: 100%;
             box-shadow: 0 20px 40px rgba(0,0,0,0.2);
             text-align: center;
         }
+        h1 { font-size: 28px; margin-bottom: 10px; color: #1e293b; }
+        h2 { font-size: 24px; margin-bottom: 15px; color: #1e293b; }
         button {
             background: #6366f1;
             color: white;
             border: none;
-            padding: 12px 28px;
-            font-size: 16px;
+            padding: 14px 32px;
+            font-size: 18px;
             font-weight: bold;
-            border-radius: 40px;
+            border-radius: 50px;
             cursor: pointer;
-            margin: 5px;
+            margin: 8px;
             transition: all 0.2s ease;
         }
         button:hover { background: #4f46e5; transform: scale(1.02); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .hidden { display: none; }
+        
+        /* TEXTO DE LEITURA - FONTE GRANDE E ADEQUADA */
         .texto-leitura {
-            background: #f1f5f9;
-            border-radius: 20px;
-            padding: 20px;
-            font-size: 20px;
-            line-height: 1.6;
+            background: #f8fafc;
+            border-radius: 24px;
+            padding: 32px;
+            font-size: 26px;
+            line-height: 1.8;
             text-align: left;
             margin: 20px 0;
-            font-family: 'Georgia', serif;
-            max-height: 300px;
+            font-family: 'Georgia', 'Times New Roman', Times, serif;
+            max-height: 450px;
             overflow-y: auto;
+            letter-spacing: 0.5px;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
         }
+        
         .timer {
-            font-size: 48px;
+            font-size: 56px;
             font-weight: bold;
             font-family: monospace;
             background: #1e293b;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 60px;
+            color: #10b981;
+            padding: 15px 30px;
+            border-radius: 80px;
             display: inline-block;
-            margin: 10px 0;
+            margin: 15px 0;
+            letter-spacing: 3px;
         }
+        
         .resultado-card {
             background: #eef2ff;
-            padding: 20px;
+            padding: 25px;
             border-radius: 30px;
             margin: 20px 0;
         }
-        .resultado-card h3 { color: #1e3c72; margin-bottom: 15px; }
-        .resultado-valor { font-size: 36px; font-weight: bold; color: #6366f1; }
-        .info-sesi { background: #fef9c3; border-radius: 20px; padding: 10px; font-size: 12px; color: #854d0e; margin-bottom: 15px; }
+        .resultado-card h3 { color: #1e3c72; margin-bottom: 12px; font-size: 18px; }
+        .resultado-valor { font-size: 42px; font-weight: bold; color: #6366f1; margin-bottom: 15px; }
+        
+        .info-sesi { 
+            background: #fef9c3; 
+            border-radius: 20px; 
+            padding: 12px; 
+            font-size: 14px; 
+            color: #854d0e; 
+            margin-bottom: 20px;
+        }
+        
         .erro-acesso { text-align: center; padding: 50px; background: white; border-radius: 40px; max-width: 500px; margin: 20px auto; }
         .erro-acesso h2 { color: #e53e3e; margin-bottom: 20px; }
-        .palavra { display: inline-block; margin: 2px; padding: 2px 4px; border-radius: 4px; transition: all 0.2s; }
+        
+        .palavra { 
+            display: inline-block; 
+            margin: 4px 3px; 
+            padding: 4px 8px; 
+            border-radius: 8px; 
+            transition: all 0.2s;
+            font-size: 26px;
+            line-height: 1.8;
+        }
         .palavra-correta { background: #bbf7d0; color: #166534; }
-        .palavra-errada { background: #fee2e2; color: #991b1b; text-decoration: underline; }
+        .palavra-em-verificacao { background: #fef9c3; color: #854d0e; }
+        
         .btn-gravando {
             background: #ef4444;
             animation: pulse 1s infinite;
@@ -85,14 +114,61 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+        
         .status-microfone {
-            font-size: 14px;
-            margin-top: 10px;
-            padding: 8px;
-            border-radius: 20px;
+            font-size: 16px;
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 30px;
+            font-weight: bold;
         }
         .status-ok { background: #bbf7d0; color: #166534; }
         .status-erro { background: #fee2e2; color: #991b1b; }
+        .status-info { background: #dbeafe; color: #1e40af; }
+        
+        .botoes-container { 
+            display: flex; 
+            gap: 15px; 
+            justify-content: center; 
+            flex-wrap: wrap; 
+            margin-top: 20px;
+        }
+        
+        .msg-salvo { 
+            margin-top: 20px; 
+            padding: 15px; 
+            border-radius: 30px; 
+            font-weight: bold; 
+            font-size: 16px;
+        }
+        .msg-sucesso { background: #bbf7d0; color: #166534; }
+        .msg-erro { background: #fee2e2; color: #991b1b; }
+        
+        .palavras-dificeis-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fef9c3;
+            border-radius: 20px;
+            text-align: left;
+        }
+        .palavras-dificeis-container strong { font-size: 16px; }
+        .palavra-dificil {
+            display: inline-block;
+            background: #fed7aa;
+            padding: 5px 12px;
+            border-radius: 20px;
+            margin: 5px;
+            font-size: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 20px; }
+            .texto-leitura { font-size: 20px; padding: 20px; }
+            .palavra { font-size: 20px; }
+            .timer { font-size: 40px; }
+            .resultado-valor { font-size: 32px; }
+            button { padding: 10px 20px; font-size: 16px; }
+        }
     </style>
 </head>
 <body>
@@ -117,23 +193,38 @@
     let timerInterval = null;
     let recognition = null;
     let transcricaoFinal = "";
-    let palavrasReconhecidas = [];
+    let statusSalvo = false;
 
     const textoParaLer = "O pequeno Saci Sabido encontrou um mistério na mata. Ele usou sua inteligência para resolver o problema sem usar o cachimbo, apenas com sabedoria e envolvimento.";
     const palavrasTexto = textoParaLer.toLowerCase().split(' ');
+    const palavrasOriginais = textoParaLer.split(' ');
+
+    function atualizarFeedbackVisual(palavrasLidas) {
+        const container = document.getElementById('textoComPalavras');
+        if (!container) return;
+        
+        let html = '';
+        palavrasOriginais.forEach((palavra, idx) => {
+            const palavraLimpa = palavrasTexto[idx].replace(/[.,!?;]/g, '');
+            const foiLida = palavrasLidas.includes(palavraLimpa);
+            const classe = foiLida ? 'palavra-correta' : '';
+            html += `<span class="palavra ${classe}">${palavra}</span> `;
+        });
+        container.innerHTML = html;
+    }
 
     function iniciarReconhecimento() {
         const btn = document.getElementById('btnIniciarLeitura');
         btn.disabled = true;
-        btn.textContent = '🎤 Gravando... Leia em voz alta';
+        btn.textContent = '🎤 Gravando...';
         btn.classList.add('btn-gravando');
         
-        document.getElementById('statusMicrofone').innerHTML = '🎤 Microfone ativo - Comece a ler...';
+        document.getElementById('statusMicrofone').innerHTML = '🎤 Microfone ativo - Leia o texto em voz alta';
         document.getElementById('statusMicrofone').className = 'status-microfone status-ok';
+        document.getElementById('btnParar').disabled = false;
         
         startTime = Date.now();
         transcricaoFinal = "";
-        palavrasReconhecidas = [];
         
         timerInterval = setInterval(() => {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -142,9 +233,9 @@
             document.getElementById('timerDisplay').textContent = 
                 `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             
-            if (elapsed >= 120) {
+            if (elapsed >= 120 && !statusSalvo) {
                 pararReconhecimento();
-                alert('⏰ Tempo limite de 2 minutos atingido.');
+                mostrarMensagem('⏰ Tempo limite de 2 minutos atingido.', 'erro');
             }
         }, 1000);
         
@@ -154,27 +245,23 @@
             recognition.continuous = true;
             recognition.interimResults = true;
             
+            let palavrasAtualizadas = [];
+            
             recognition.onresult = (event) => {
-                let interimText = "";
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     if (event.results[i].isFinal) {
                         transcricaoFinal += event.results[i][0].transcript + " ";
-                    } else {
-                        interimText += event.results[i][0].transcript;
                     }
                 }
-                
-                // Feedback visual em tempo real
                 const palavrasLidas = transcricaoFinal.toLowerCase().split(' ');
                 atualizarFeedbackVisual(palavrasLidas);
-                
-                document.getElementById('statusMicrofone').innerHTML = '🎤 Leitura em andamento...';
+                document.getElementById('statusMicrofone').innerHTML = '🎤 Leitura em andamento... Fale pausadamente';
             };
             
             recognition.onerror = (event) => {
-                console.error('Erro no reconhecimento:', event.error);
+                console.error('Erro:', event.error);
                 if (event.error === 'not-allowed') {
-                    document.getElementById('statusMicrofone').innerHTML = '❌ Permissão do microfone negada. Clique no botão "Permitir" no navegador.';
+                    document.getElementById('statusMicrofone').innerHTML = '❌ Permissão do microfone negada. Clique no ícone de cadeado na barra de endereço e permita o microfone.';
                 } else if (event.error === 'no-speech') {
                     document.getElementById('statusMicrofone').innerHTML = '⚠️ Nenhum discurso detectado. Fale mais alto ou verifique seu microfone.';
                 } else {
@@ -185,28 +272,17 @@
             
             recognition.onend = () => {
                 if (document.getElementById('telaLeitura') && !document.getElementById('telaLeitura').classList.contains('hidden')) {
-                    pararReconhecimento();
+                    if (!statusSalvo) {
+                        pararReconhecimento();
+                    }
                 }
             };
             
             recognition.start();
         } else {
-            alert('Seu navegador não suporta reconhecimento de voz. Use Google Chrome ou Microsoft Edge.');
+            mostrarMensagem('Seu navegador não suporta reconhecimento de voz. Use Google Chrome ou Microsoft Edge.', 'erro');
             reiniciarJogo();
         }
-    }
-    
-    function atualizarFeedbackVisual(palavrasLidas) {
-        const container = document.getElementById('textoComPalavras');
-        if (!container) return;
-        
-        let html = '';
-        palavrasTexto.forEach((palavra, idx) => {
-            const foiLida = palavrasLidas.includes(palavra.replace(/[.,!?;]/g, ''));
-            const classe = foiLida ? 'palavra-correta' : '';
-            html += `<span class="palavra ${classe}">${textoParaLer.split(' ')[idx]}</span> `;
-        });
-        container.innerHTML = html;
     }
 
     function pararReconhecimento() {
@@ -216,6 +292,10 @@
         }
         
         const tempoTotal = Math.floor((Date.now() - startTime) / 1000);
+        processarResultado(tempoTotal);
+    }
+
+    function processarResultado(tempoTotal) {
         const palavrasLidas = transcricaoFinal.toLowerCase().split(' ');
         
         let acertos = 0;
@@ -226,13 +306,13 @@
             if (palavrasLidas.includes(palavraLimpa)) {
                 acertos++;
             } else {
-                if (!palavrasErradas.includes(palavra)) {
-                    palavrasErradas.push(textoParaLer.split(' ')[idx]);
+                if (!palavrasErradas.includes(palavrasOriginais[idx])) {
+                    palavrasErradas.push(palavrasOriginais[idx]);
                 }
             }
         });
         
-        const ppm = Math.round((acertos / tempoTotal) * 60);
+        const ppm = Math.round((acertos / Math.max(tempoTotal, 1)) * 60);
         const precisao = Math.round((acertos / palavrasTexto.length) * 100);
         
         let nivel = '';
@@ -246,10 +326,9 @@
         document.getElementById('resultadoTempo').textContent = `${tempoTotal} segundos`;
         document.getElementById('resultadoNivel').textContent = nivel;
         
-        // Mostrar palavras difíceis
         if (palavrasErradas.length > 0) {
             const divPalavras = document.getElementById('palavrasDificeis');
-            divPalavras.innerHTML = `<strong>📖 Palavras para praticar:</strong><br>${palavrasErradas.slice(0, 10).join(', ')}`;
+            divPalavras.innerHTML = `<strong>📖 Palavras para praticar:</strong><br>${palavrasErradas.slice(0, 10).map(p => `<span class="palavra-dificil">${p}</span>`).join('')}`;
             divPalavras.classList.remove('hidden');
         }
         
@@ -259,8 +338,30 @@
         salvarResultado(ppm, precisao, tempoTotal, nivel, acertos, palavrasTexto.length - acertos, palavrasErradas);
     }
 
+    function mostrarMensagem(texto, tipo) {
+        const msgDiv = document.getElementById('msgSalvoResultado');
+        if (msgDiv) {
+            msgDiv.innerHTML = texto;
+            msgDiv.className = `msg-salvo ${tipo === 'sucesso' ? 'msg-sucesso' : 'msg-erro'}`;
+            msgDiv.classList.remove('hidden');
+            setTimeout(() => {
+                msgDiv.classList.add('hidden');
+            }, 5000);
+        }
+    }
+
     async function salvarResultado(ppm, precisao, tempo, nivel, acertos, erros, palavrasDificeis) {
-        if (modoTeste || !alunoId) return;
+        statusSalvo = true;
+        
+        if (modoTeste) {
+            mostrarMensagem('🔧 Modo teste - dados não salvos', 'erro');
+            return;
+        }
+        
+        if (!alunoId) {
+            mostrarMensagem('⚠️ Aluno não identificado - dados não salvos', 'erro');
+            return;
+        }
         
         const dados = {
             aluno_id: alunoId,
@@ -279,15 +380,12 @@
         };
         
         const { error } = await supabaseClient.from('resultados').insert([dados]);
-        const msgDiv = document.getElementById('msgSalvo');
-        if (msgDiv) {
-            if (error) {
-                msgDiv.innerHTML = `❌ Erro ao salvar: ${error.message}`;
-                msgDiv.style.color = '#e53e3e';
-            } else {
-                msgDiv.innerHTML = '✅ Resultado salvo com sucesso!';
-                msgDiv.style.color = '#10b981';
-            }
+        
+        if (error) {
+            console.error("Erro:", error);
+            mostrarMensagem(`❌ Erro ao salvar: ${error.message}`, 'erro');
+        } else {
+            mostrarMensagem('✅ Resultado salvo com sucesso!', 'sucesso');
         }
     }
 
@@ -296,9 +394,15 @@
         if (recognition) {
             try { recognition.stop(); } catch(e) {}
         }
-        document.getElementById('btnIniciarLeitura').disabled = false;
-        document.getElementById('btnIniciarLeitura').textContent = '🎤 INICIAR LEITURA';
-        document.getElementById('btnIniciarLeitura').classList.remove('btn-gravando');
+        statusSalvo = false;
+        const btn = document.getElementById('btnIniciarLeitura');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '🎤 INICIAR LEITURA';
+            btn.classList.remove('btn-gravando');
+        }
+        const btnParar = document.getElementById('btnParar');
+        if (btnParar) btnParar.disabled = true;
         document.getElementById('timerDisplay').textContent = '00:00';
         document.getElementById('statusMicrofone').innerHTML = '';
     }
@@ -308,12 +412,14 @@
         document.getElementById('telaInicial').classList.add('hidden');
         document.getElementById('telaLeitura').classList.remove('hidden');
         
-        // Solicitar permissão do microfone antes de começar
+        // Reiniciar visual do texto
+        atualizarFeedbackVisual([]);
+        
         try {
             await navigator.mediaDevices.getUserMedia({ audio: true });
             document.getElementById('btnIniciarLeitura').onclick = iniciarReconhecimento;
         } catch(err) {
-            alert('❌ É necessário permitir o acesso ao microfone para realizar a leitura. Clique no ícone de cadeado na barra de endereço e permita o microfone.');
+            mostrarMensagem('❌ É necessário permitir o acesso ao microfone. Clique no ícone de cadeado na barra de endereço e permita o microfone.', 'erro');
             reiniciarJogo();
         }
     }
@@ -361,6 +467,10 @@
         `;
     }
 
+    function finalizarEVoltar() {
+        window.location.href = 'https://saci-sabido.vercel.app';
+    }
+
     async function carregarJogo() {
         const acesso = await verificarAcesso();
         if (!acesso && !modoTeste) return;
@@ -369,22 +479,25 @@
             <div class="container">
                 <div id="telaInicial">
                     <h1>📖 Fluência Leitora</h1>
-                    <p>Leia o texto em voz alta com clareza</p>
+                    <p>Leia o texto em voz alta com calma e clareza</p>
                     <div class="info-sesi">📚 Habilidade: EF35LP09 - Ler com fluência e precisão</div>
                     <div class="texto-leitura">${textoParaLer}</div>
-                    <button id="btnComecar">🚀 COMEÇAR</button>
-                    <div class="mt-2" style="font-size:12px;">${modoTeste ? '🔧 Modo teste' : '✅ Conectado'}</div>
+                    <button id="btnComecar">🚀 INICIAR LEITURA</button>
+                    <div style="margin-top: 15px; font-size: 12px;">${modoTeste ? '🔧 Modo teste' : '✅ Conectado'}</div>
                 </div>
                 
                 <div id="telaLeitura" class="hidden">
                     <h2>🎤 Leia em voz alta</h2>
                     <div class="timer" id="timerDisplay">00:00</div>
                     <div class="texto-leitura" id="textoComPalavras">
-                        ${textoParaLer.split(' ').map(p => `<span class="palavra">${p}</span>`).join(' ')}
+                        ${palavrasOriginais.map(p => `<span class="palavra">${p}</span>`).join(' ')}
                     </div>
                     <div id="statusMicrofone" class="status-microfone"></div>
-                    <button id="btnIniciarLeitura">🎤 INICIAR LEITURA</button>
-                    <button id="btnCancelar" style="background:#ef4444;">❌ CANCELAR</button>
+                    <div class="botoes-container">
+                        <button id="btnIniciarLeitura">🎤 INICIAR LEITURA</button>
+                        <button id="btnParar" style="background:#ef4444;" disabled>⏹️ PARAR / FINALIZAR</button>
+                        <button id="btnCancelar" style="background:#6b7280;">❌ CANCELAR</button>
+                    </div>
                 </div>
                 
                 <div id="telaResultado" class="hidden">
@@ -398,25 +511,35 @@
                         <div class="resultado-valor" id="resultadoTempo">0 segundos</div>
                         <h3>📝 Nível</h3>
                         <div class="resultado-valor" id="resultadoNivel">--</div>
-                        <div id="palavrasDificeis" class="hidden" style="margin-top:15px; padding:10px; background:#fef9c3; border-radius:15px;"></div>
+                        <div id="palavrasDificeis" class="palavras-dificeis-container hidden"></div>
                     </div>
-                    <div id="msgSalvo" class="text-sm mt-2"></div>
-                    <button id="btnNovamente">🔄 LER NOVAMENTE</button>
+                    <div id="msgSalvoResultado" class="msg-salvo hidden"></div>
+                    <div class="botoes-container">
+                        <button id="btnNovamente">🔄 LER NOVAMENTE</button>
+                        <button id="btnConcluir" style="background:#10b981;">✅ CONCLUIR</button>
+                    </div>
                 </div>
             </div>
         `;
         
         document.getElementById('btnComecar').onclick = iniciarJogo;
+        document.getElementById('btnParar').onclick = () => {
+            if (recognition && startTime) {
+                pararReconhecimento();
+            }
+        };
         document.getElementById('btnCancelar').onclick = () => {
             reiniciarJogo();
             document.getElementById('telaLeitura').classList.add('hidden');
             document.getElementById('telaInicial').classList.remove('hidden');
         };
         document.getElementById('btnNovamente').onclick = () => {
+            statusSalvo = false;
             document.getElementById('telaResultado').classList.add('hidden');
             document.getElementById('telaInicial').classList.remove('hidden');
             reiniciarJogo();
         };
+        document.getElementById('btnConcluir').onclick = finalizarEVoltar;
     }
     
     carregarJogo();
