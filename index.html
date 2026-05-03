@@ -39,7 +39,7 @@
             transition: all 0.2s ease;
         }
         button:hover { background: #4f46e5; transform: scale(1.02); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         .hidden { display: none; }
         
         .texto-leitura {
@@ -456,11 +456,26 @@
         }
     }
 
+    // ============================================================
+    // FUNÇÃO CORRIGIDA PARA VOLTAR AO PAINEL (Problema 9)
+    // ============================================================
     function finalizarEVoltar() {
+        // Tenta fechar a janela (se foi aberta como popup)
         if (window.opener) {
             window.close();
         } else {
-            window.location.href = 'https://saci-sabido.vercel.app';
+            // Recupera parâmetros da URL para construir o retorno
+            const params = new URLSearchParams(window.location.search);
+            const turmaId = params.get('turma_id');
+            const alunoId = params.get('aluno_id');
+            
+            if (turmaId && alunoId) {
+                // Redireciona para a lista de atividades do aluno
+                window.location.href = `https://saci-sabido.vercel.app/aluno/turma/${turmaId}/jogos/${alunoId}`;
+            } else {
+                // Fallback: volta para a tela inicial
+                window.location.href = 'https://saci-sabido.vercel.app';
+            }
         }
     }
 
@@ -532,6 +547,7 @@
             document.getElementById('telaInicial').classList.remove('hidden');
             reiniciarJogo();
         };
+        // Botão CONCLUIR chama a função corrigida
         document.getElementById('btnConcluir').onclick = finalizarEVoltar;
     }
     
