@@ -187,26 +187,53 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const urlParams = new URLSearchParams(window.location.search);
-    const jogoSlug = urlParams.get('jogo_slug');
+    const atividadeId = urlParams.get('atividade_id');
     const alunoId = urlParams.get('aluno_id');
     const turmaId = urlParams.get('turma_id');
     const escolaId = urlParams.get('escola_id');
     const modoTeste = urlParams.get('modo_teste') === 'true';
     
-    // MODO VISUALIZAÇÃO: se não tem parâmetros, entra em modo administrador/demonstração
-    const modoVisualizacao = (!jogoSlug || !turmaId || !alunoId);
+    const modoVisualizacao = (!atividadeId || !turmaId || !alunoId);
 
     let jogoAtivo = false;
-    let jogoId = null;
     let startTime = null;
     let timerInterval = null;
     let recognition = null;
     let transcricaoFinal = "";
     let statusSalvo = false;
+    let textoParaLer = "";
+    let palavrasTexto = [];
+    let palavrasOriginais = [];
 
-    const textoParaLer = "O pequeno Saci Sabido encontrou um mistério na mata. Ele usou sua inteligência para resolver o problema sem usar o cachimbo, apenas com sabedoria e envolvimento.";
-    const palavrasTexto = textoParaLer.toLowerCase().split(' ');
-    const palavrasOriginais = textoParaLer.split(' ');
+    async function carregarTexto() {
+        if (modoVisualizacao || modoTeste) {
+            textoParaLer = "O pequeno Saci Sabido encontrou um mistério na mata. Ele usou sua inteligência para resolver o problema sem usar o cachimbo, apenas com sabedoria e envolvimento.";
+            palavrasTexto = textoParaLer.toLowerCase().split(' ');
+            palavrasOriginais = textoParaLer.split(' ');
+            return;
+        }
+        
+        try {
+            const { data, error } = await supabaseClient
+                .from('atividades_fluencia')
+                .select('texto_avaliacao, titulo')
+                .eq('id', atividadeId)
+                .single();
+            
+            if (error || !data) {
+                console.error('Erro ao carregar texto:', error);
+                textoParaLer = "Erro ao carregar texto. Tente novamente.";
+            } else {
+                textoParaLer = data.texto_avaliacao;
+                document.title = `Saci Sabido - ${data.titulo}`;
+            }
+            palavrasTexto = textoParaLer.toLowerCase().split(' ');
+            palavrasOriginais = textoParaLer.split(' ');
+        } catch(e) {
+            console.error('Erro:', e);
+            textoParaLer = "Erro ao carregar texto. Tente novamente.";
+        }
+    }
 
     function atualizarFeedbackVisual(palavrasLidas) {
         const container = document.getElementById('textoComPalavras');
@@ -342,7 +369,6 @@
         document.getElementById('telaLeitura').classList.add('hidden');
         document.getElementById('telaResultado').classList.remove('hidden');
         
-        // Se NÃO for modo visualização, salva o resultado
         if (!modoVisualizacao && !modoTeste) {
             salvarResultado(ppm, precisao, tempoTotal, nivel, acertos, palavrasTexto.length - acertos, palavrasErradas);
         } else {
@@ -371,28 +397,27 @@
         }
         
         const dados = {
+            atividade_id: atividadeId,
             aluno_id: alunoId,
-            jogo_id: jogoId,
             turma_id: turmaId,
             ppm: ppm,
-            nivel_proficiencia: nivel,
-            texto_avaliacao: textoParaLer,
-            transcricao_aluno: transcricaoFinal.substring(0, 800),
+            precisao: precisao,
             tempo_segundos: tempo,
-            acertos: acertos,
-            erros: erros,
-            total_questoes: palavrasTexto.length,
-            habilidade_bncc: 'EF35LP09',
-            tipo_atividade: 'fluencia_leitora'
+            nivel_proficiencia: nivel,
+            transcricao_aluno: transcricaoFinal.substring(0, 2000),
+            palavras_dificeis: palavrasDificeis.slice(0, 20)
         };
         
-        const { error } = await supabaseClient.from('resultados').insert([dados]);
-        
-        if (error) {
-            console.error("Erro:", error);
-            mostrarMensagem(`❌ Erro ao salvar: ${error.message}`, 'erro');
-        } else {
-            mostrarMensagem('✅ Resultado salvo com sucesso!', 'sucesso');
+        try {
+            const { error } = await supabaseClient.from('resultados_fluencia').insert([dados]);
+            if (error) {
+                console.error('Erro:', error);
+                mostrarMensagem(`❌ Erro ao salvar: ${error.message}`, 'erro');
+            } else {
+                mostrarMensagem('✅ Resultado salvo com sucesso!', 'sucesso');
+            }
+        } catch(e) {
+            mostrarMensagem('❌ Erro ao conectar com o servidor', 'erro');
         }
     }
 
@@ -412,8 +437,6 @@
         if (btnParar) btnParar.disabled = true;
         document.getElementById('timerDisplay').textContent = '00:00';
         document.getElementById('statusMicrofone').innerHTML = '';
-        
-        // Reset visual do texto
         atualizarFeedbackVisual([]);
     }
 
@@ -422,89 +445,38 @@
         document.getElementById('telaInicial').classList.add('hidden');
         document.getElementById('telaLeitura').classList.remove('hidden');
         
-        // Reiniciar visual do texto
         atualizarFeedbackVisual([]);
         
         try {
             await navigator.mediaDevices.getUserMedia({ audio: true });
             document.getElementById('btnIniciarLeitura').onclick = iniciarReconhecimento;
         } catch(err) {
-            mostrarMensagem('❌ É necessário permitir o acesso ao microfone. Clique no ícone de cadeado na barra de endereço e permita o microfone.', 'erro');
+            mostrarMensagem('❌ É necessário permitir o acesso ao microfone.', 'erro');
             reiniciarJogo();
         }
     }
 
-    async function verificarAcesso() {
-        // Se for modo visualização (ADMIN testando), libera sem verificação
-        if (modoVisualizacao || modoTeste) {
-            return true;
-        }
-        
-        if (!jogoSlug || !turmaId) {
-            mostrarErro('❌ Link inválido. Faltam parâmetros.');
-            return false;
-        }
-        
-        try {
-            const { data: jogo } = await supabaseClient
-                .from('jogos')
-                .select('id')
-                .eq('slug', jogoSlug)
-                .single();
-            
-            if (!jogo) { mostrarErro('❌ Jogo não encontrado.'); return false; }
-            jogoId = jogo.id;
-            
-            const { data: atribuicao } = await supabaseClient
-                .from('jogos_turma')
-                .select('status')
-                .eq('turma_id', turmaId)
-                .eq('jogo_id', jogoId);
-            
-            if (!atribuicao || atribuicao.length === 0) {
-                mostrarErro('❌ Este jogo não foi atribuído à sua turma.');
-                return false;
-            }
-            
-            if (atribuicao[0].status === 'inativo') {
-                mostrarErro('❌ Este jogo está bloqueado pelo professor.');
-                return false;
-            }
-            
-            return true;
-        } catch(e) { mostrarErro('Erro ao verificar acesso.'); return false; }
-    }
-
-    function mostrarErro(mensagem) {
-        document.getElementById('app').innerHTML = `
-            <div class="erro-acesso"><h2>⛔ Acesso Negado</h2><p>${mensagem}</p><button onclick="window.history.back()">Voltar</button></div>
-        `;
-    }
-
     function finalizarEVoltar() {
-        if (modoVisualizacao) {
-            // Se for admin, apenas recarrega a página
-            window.location.reload();
+        if (window.opener) {
+            window.close();
         } else {
             window.location.href = 'https://saci-sabido.vercel.app';
         }
     }
 
     async function carregarJogo() {
-        const acesso = await verificarAcesso();
-        if (!acesso && !modoVisualizacao && !modoTeste) return;
+        await carregarTexto();
         
         document.getElementById('app').innerHTML = `
             <div class="container">
                 <div id="telaInicial">
                     <h1>📖 Fluência Leitora</h1>
                     <p>Leia o texto em voz alta com calma e clareza</p>
-                    ${modoVisualizacao ? '<div class="aviso-admin">🔧 MODO VISUALIZAÇÃO - Os dados NÃO serão salvos. Use os parâmetros na URL para testar com aluno real.</div>' : ''}
-                    ${modoTeste ? '<div class="aviso-admin">🔧 MODO TESTE - Os dados NÃO serão salvos no banco.</div>' : ''}
+                    ${modoVisualizacao ? '<div class="aviso-admin">🔧 MODO VISUALIZAÇÃO - Os dados NÃO serão salvos</div>' : ''}
+                    ${modoTeste ? '<div class="aviso-admin">🔧 MODO TESTE - Os dados NÃO serão salvos no banco</div>' : ''}
                     <div class="info-sesi">📚 Habilidade: EF35LP09 - Ler com fluência e precisão</div>
                     <div class="texto-leitura">${textoParaLer}</div>
                     <button id="btnComecar">🚀 INICIAR LEITURA</button>
-                    <div style="margin-top: 15px; font-size: 12px;">${modoVisualizacao ? '👁️ Modo Visualização' : (modoTeste ? '🔧 Modo teste' : '✅ Conectado')}</div>
                 </div>
                 
                 <div id="telaLeitura" class="hidden">
