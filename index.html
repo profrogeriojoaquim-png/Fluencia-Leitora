@@ -47,27 +47,24 @@
             border-radius: 24px;
             padding: 32px;
             font-size: 26px;
-            line-height: 1.8;          /* fixo, não muda */
+            line-height: 1.8;
             text-align: left;
             margin: 20px 0;
             font-family: 'Georgia', 'Times New Roman', Times, serif;
             max-height: 450px;
             overflow-y: auto;
-            letter-spacing: 0.5px;
-            color: #1e293b;
             border: 1px solid #e2e8f0;
+            color: #1e293b;
         }
         
-        /* Cada palavra – estilo consistente que não altera o espaçamento */
         .palavra { 
             display: inline-block; 
-            margin: 0 2px;           /* antes era 4px 3px - reduzido para não causar quebra */
+            margin: 0 2px;
             padding: 2px 4px; 
             border-radius: 8px; 
             transition: background-color 0.1s ease;
             font-size: 26px;
-            line-height: 1.8;        /* mesmo do pai */
-            white-space: normal;
+            line-height: 1.8;
         }
         .palavra-correta { 
             background: #bbf7d0; 
@@ -162,7 +159,6 @@
             border-radius: 20px;
             text-align: left;
         }
-        .palavras-dificeis-container strong { font-size: 16px; }
         .palavra-dificil {
             display: inline-block;
             background: #fed7aa;
@@ -170,6 +166,16 @@
             border-radius: 20px;
             margin: 5px;
             font-size: 16px;
+        }
+        
+        .fallback-link {
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .fallback-link a {
+            color: #6366f1;
+            text-decoration: underline;
+            cursor: pointer;
         }
         
         @media (max-width: 768px) {
@@ -187,10 +193,12 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+    // ==================== CONFIGURAÇÕES ====================
     const SUPABASE_URL = 'https://qmcqffnawtfaenyziwsn.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtY3FmZm5hd3RmYWVueXppd3NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNTM5NTMsImV4cCI6MjA4OTcyOTk1M30._CjaNoeJeQp-8s8Jt-dk3bJfktdEV97R5LhLnWgYrNc';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Parâmetros da URL
     const urlParams = new URLSearchParams(window.location.search);
     const atividadeId = urlParams.get('atividade_id');
     const alunoId = urlParams.get('aluno_id');
@@ -198,8 +206,10 @@
     const escolaId = urlParams.get('escola_id');
     const modoTeste = urlParams.get('modo_teste') === 'true';
     
+    // Modo visualização (sem salvar) se faltar parâmetros essenciais
     const modoVisualizacao = (!atividadeId || !turmaId || !alunoId);
-
+    
+    // Variáveis de estado
     let jogoAtivo = false;
     let startTime = null;
     let timerInterval = null;
@@ -207,65 +217,225 @@
     let transcricaoFinal = "";
     let statusSalvo = false;
     let textoParaLer = "";
-    let palavrasTexto = [];
-    let palavrasOriginais = [];
-
-    // Função auxiliar: normaliza texto (minúsculas, remove pontuação, espaços extras)
+    let palavrasOriginais = [];     // texto original (para exibição)
+    let palavrasNormalizadas = [];   // texto sem acentos/pontuação (para comparação)
+    
+    // ✅ NOVO: Array para armazenar os detalhes dos erros
+    let detalhesErrosFluencia = [];
+    
+    // ==================== FUNÇÕES AUXILIARES ====================
     function normalizarTexto(txt) {
         return txt
             .toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
-            .replace(/[.,!?;:()"']/g, '') // remove pontuação
-            .replace(/\s+/g, ' ') // espaços múltiplos vira um
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[.,!?;:()"']/g, '')
+            .replace(/\s+/g, ' ')
             .trim();
     }
-
+    
     async function carregarTexto() {
         if (modoVisualizacao || modoTeste) {
             textoParaLer = "O pequeno Saci Sabido encontrou um mistério na mata. Ele usou sua inteligência para resolver o problema sem usar o cachimbo, apenas com sabedoria e envolvimento.";
             palavrasOriginais = textoParaLer.split(' ');
-            palavrasTexto = normalizarTexto(textoParaLer).split(' ');
+            palavrasNormalizadas = normalizarTexto(textoParaLer).split(' ');
             return;
         }
         
         try {
-            const { data, error } = await supabaseClient
+            const { data, error } = await supabase
                 .from('atividades_fluencia')
                 .select('texto_avaliacao, titulo')
                 .eq('id', atividadeId)
                 .single();
-            
-            if (error || !data) {
-                console.error('Erro ao carregar texto:', error);
-                textoParaLer = "Erro ao carregar texto. Tente novamente.";
-            } else {
-                textoParaLer = data.texto_avaliacao;
-                document.title = `Saci Sabido - ${data.titulo}`;
-            }
+            if (error || !data) throw new Error('Texto não encontrado');
+            textoParaLer = data.texto_avaliacao;
+            document.title = `Saci Sabido - ${data.titulo}`;
             palavrasOriginais = textoParaLer.split(' ');
-            palavrasTexto = normalizarTexto(textoParaLer).split(' ');
-        } catch(e) {
-            console.error('Erro:', e);
+            palavrasNormalizadas = normalizarTexto(textoParaLer).split(' ');
+        } catch (e) {
+            console.error(e);
             textoParaLer = "Erro ao carregar texto. Tente novamente.";
             palavrasOriginais = textoParaLer.split(' ');
-            palavrasTexto = normalizarTexto(textoParaLer).split(' ');
+            palavrasNormalizadas = normalizarTexto(textoParaLer).split(' ');
         }
     }
-
+    
     function atualizarFeedbackVisual(palavrasLidasNorm) {
         const container = document.getElementById('textoComPalavras');
         if (!container) return;
-        
         let html = '';
         palavrasOriginais.forEach((palavra, idx) => {
-            const palavraOriginalNorm = palavrasTexto[idx]; // já normalizado
-            const foiLida = palavrasLidasNorm.includes(palavraOriginalNorm);
+            const palavraNorm = palavrasNormalizadas[idx];
+            const foiLida = palavrasLidasNorm.includes(palavraNorm);
             const classe = foiLida ? 'palavra-correta' : '';
             html += `<span class="palavra ${classe}">${palavra}</span> `;
         });
         container.innerHTML = html;
     }
-
+    
+    function mostrarMensagem(texto, tipo, elementoId = 'msgSalvoResultado') {
+        const msgDiv = document.getElementById(elementoId);
+        if (msgDiv) {
+            msgDiv.innerHTML = texto;
+            msgDiv.className = `msg-salvo ${tipo === 'sucesso' ? 'msg-sucesso' : tipo === 'info' ? 'msg-info' : 'msg-erro'}`;
+            msgDiv.classList.remove('hidden');
+            setTimeout(() => msgDiv.classList.add('hidden'), 5000);
+        }
+    }
+    
+    async function salvarResultado(ppm, precisao, tempo, nivel, acertos, erros, palavrasDificeis, detalhesErros) {
+        if (modoVisualizacao || modoTeste || !alunoId) {
+            mostrarMensagem('🔧 Modo teste/visualização - Nenhum dado foi salvo', 'info');
+            return;
+        }
+        statusSalvo = true;
+        
+        const dados = {
+            atividade_id: atividadeId,
+            aluno_id: alunoId,
+            turma_id: turmaId,
+            ppm: ppm,
+            precisao: precisao,
+            tempo_segundos: tempo,
+            nivel_proficiencia: nivel,
+            transcricao_aluno: transcricaoFinal.substring(0, 2000),
+            palavras_dificeis: palavrasDificeis.slice(0, 20)
+        };
+        
+        try {
+            // Salva na tabela resultados_fluencia
+            const { error: errorFluencia } = await supabase.from('resultados_fluencia').insert([dados]);
+            if (errorFluencia) throw errorFluencia;
+            
+            // ✅ NOVO: Salva também na tabela resultados com os detalhes dos erros
+            const dadosResultados = {
+                aluno_id: alunoId,
+                jogo_id: atividadeId,
+                turma_id: turmaId,
+                acertos: acertos,
+                erros: erros,
+                habilidade_bncc: 'EF35LP09',
+                tempo_segundos: tempo,
+                total_questoes: palavrasNormalizadas.length,
+                detalhes_erros: detalhesErros,
+                jogos: {
+                    nome: 'Fluência Leitora',
+                    codigo_bncc: 'Fluência Leitora'
+                }
+            };
+            
+            const { error: errorResultados } = await supabase.from('resultados').insert([dadosResultados]);
+            if (errorResultados) {
+                console.error('Erro ao salvar em resultados:', errorResultados);
+                // Não lança erro - o importante é que salvou em resultados_fluencia
+            }
+            
+            mostrarMensagem('✅ Resultado salvo com sucesso!', 'sucesso');
+        } catch (e) {
+            console.error(e);
+            mostrarMensagem(`❌ Erro ao salvar: ${e.message}`, 'erro');
+        }
+    }
+    
+    function processarResultado(tempoTotal) {
+        if (timerInterval) clearInterval(timerInterval);
+        if (recognition) {
+            try { recognition.stop(); } catch(e) {}
+        }
+        
+        const textoNorm = normalizarTexto(transcricaoFinal);
+        const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
+        
+        let acertos = 0;
+        const palavrasErradas = [];
+        const errosDetalhados = [];
+        
+        // ✅ NOVO: Capturar detalhes de cada erro
+        palavrasNormalizadas.forEach((palavraNorm, idx) => {
+            if (palavrasLidasNorm.includes(palavraNorm)) {
+                acertos++;
+            } else {
+                const palavraOriginal = palavrasOriginais[idx];
+                if (!palavrasErradas.includes(palavraOriginal)) {
+                    palavrasErradas.push(palavraOriginal);
+                    
+                    // Verifica se o aluno tentou ler algo parecido
+                    const tentativa = palavrasLidasNorm.find(p => 
+                        p.length > 2 && (
+                            p.includes(palavraNorm.substring(0, 3)) ||
+                            palavraNorm.includes(p.substring(0, 3))
+                        )
+                    );
+                    
+                    errosDetalhados.push({
+                        pergunta: `Leitura da palavra: "${palavraOriginal}"`,
+                        resposta: tentativa || "Não lida",
+                        respostaCorreta: palavraOriginal,
+                        explicacaoErro: `Palavra não identificada na leitura. Pratique a pronúncia e o reconhecimento visual desta palavra.`
+                    });
+                }
+            }
+        });
+        
+        const ppm = Math.round((acertos / Math.max(tempoTotal, 1)) * 60);
+        const precisao = Math.round((acertos / palavrasNormalizadas.length) * 100);
+        let nivel = '';
+        if (precisao >= 85 && ppm >= 100) nivel = '🔵 Avançado';
+        else if (precisao >= 70 && ppm >= 70) nivel = ' Proficiente';
+        else if (precisao >= 50 && ppm >= 40) nivel = '🟡 Em desenvolvimento';
+        else nivel = '🔴 Inicial';
+        
+        // Exibir resultados
+        document.getElementById('resultadoVelocidade').textContent = `${ppm} palavras/minuto`;
+        document.getElementById('resultadoPrecisao').textContent = `${precisao}% de acertos`;
+        document.getElementById('resultadoTempo').textContent = `${tempoTotal} segundos`;
+        document.getElementById('resultadoNivel').textContent = nivel;
+        
+        if (palavrasErradas.length > 0) {
+            const divPalavras = document.getElementById('palavrasDificeis');
+            divPalavras.innerHTML = `<strong>📖 Palavras para praticar:</strong><br>${palavrasErradas.slice(0, 10).map(p => `<span class="palavra-dificil">${p}</span>`).join('')}`;
+            divPalavras.classList.remove('hidden');
+        }
+        
+        document.getElementById('telaLeitura').classList.add('hidden');
+        document.getElementById('telaResultado').classList.remove('hidden');
+        
+        // ✅ Salva com os detalhes dos erros
+        salvarResultado(ppm, precisao, tempoTotal, nivel, acertos, palavrasNormalizadas.length - acertos, palavrasErradas, errosDetalhados);
+    }
+    
+    function reiniciarJogo() {
+        if (timerInterval) clearInterval(timerInterval);
+        if (recognition) {
+            try { recognition.stop(); } catch(e) {}
+        }
+        transcricaoFinal = "";
+        statusSalvo = false;
+        detalhesErrosFluencia = []; // ✅ Resetar array de erros
+        
+        const btn = document.getElementById('btnIniciarLeitura');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '🎤 INICIAR LEITURA';
+            btn.classList.remove('btn-gravando');
+        }
+        const btnParar = document.getElementById('btnParar');
+        if (btnParar) btnParar.disabled = true;
+        document.getElementById('timerDisplay').textContent = '00:00';
+        document.getElementById('statusMicrofone').innerHTML = '';
+        document.getElementById('statusMicrofone').className = 'status-microfone';
+        
+        // Reset visual sem destaques
+        const container = document.getElementById('textoComPalavras');
+        if (container) {
+            let html = '';
+            palavrasOriginais.forEach(palavra => {
+                html += `<span class="palavra">${palavra}</span> `;
+            });
+            container.innerHTML = html;
+        }
+    }
+    
     function iniciarReconhecimento() {
         const btn = document.getElementById('btnIniciarLeitura');
         btn.disabled = true;
@@ -283,231 +453,103 @@
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
-            document.getElementById('timerDisplay').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
+            document.getElementById('timerDisplay').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             if (elapsed >= 120 && !statusSalvo) {
                 pararReconhecimento();
-                mostrarMensagem('⏰ Tempo limite de 2 minutos atingido.', 'erro');
+                mostrarMensagem(' Tempo limite de 2 minutos atingido.', 'erro', 'msgSalvoResultado');
             }
         }, 1000);
         
-        if ('webkitSpeechRecognition' in window) {
-            recognition = new webkitSpeechRecognition();
-            recognition.lang = 'pt-BR';
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            
-            recognition.onresult = (event) => {
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    if (event.results[i].isFinal) {
-                        transcricaoFinal += event.results[i][0].transcript + " ";
-                    }
-                }
-                // Normaliza as palavras reconhecidas e atualiza o feedback visual
-                const textoNorm = normalizarTexto(transcricaoFinal);
-                const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
-                atualizarFeedbackVisual(palavrasLidasNorm);
-                document.getElementById('statusMicrofone').innerHTML = '🎤 Leitura em andamento... Fale pausadamente';
-            };
-            
-            recognition.onerror = (event) => {
-                console.error('Erro:', event.error);
-                if (event.error === 'not-allowed') {
-                    document.getElementById('statusMicrofone').innerHTML = '❌ Permissão do microfone negada. Clique no ícone de cadeado na barra de endereço e permita o microfone.';
-                } else if (event.error === 'no-speech') {
-                    document.getElementById('statusMicrofone').innerHTML = '⚠️ Nenhum discurso detectado. Fale mais alto ou verifique seu microfone.';
-                } else {
-                    document.getElementById('statusMicrofone').innerHTML = '❌ Erro: ' + event.error;
-                }
-                document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
-            };
-            
-            recognition.onend = () => {
-                if (document.getElementById('telaLeitura') && !document.getElementById('telaLeitura').classList.contains('hidden')) {
-                    if (!statusSalvo) {
-                        pararReconhecimento();
-                    }
-                }
-            };
-            
-            recognition.start();
-        } else {
-            mostrarMensagem('Seu navegador não suporta reconhecimento de voz. Use Google Chrome ou Microsoft Edge.', 'erro');
-            reiniciarJogo();
+        if (!('webkitSpeechRecognition' in window)) {
+            mostrarMensagem('Seu navegador não suporta reconhecimento de voz. Use Google Chrome ou Edge.', 'erro', 'msgSalvoResultado');
+            pararReconhecimento();
+            return;
         }
+        
+        recognition = new webkitSpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        
+        recognition.onresult = (event) => {
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    transcricaoFinal += event.results[i][0].transcript + " ";
+                }
+            }
+            const textoNorm = normalizarTexto(transcricaoFinal);
+            const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
+            atualizarFeedbackVisual(palavrasLidasNorm);
+            document.getElementById('statusMicrofone').innerHTML = '🎤 Leitura em andamento... Fale pausadamente';
+        };
+        
+        recognition.onerror = (event) => {
+            console.error(event.error);
+            if (event.error === 'not-allowed') {
+                document.getElementById('statusMicrofone').innerHTML = '❌ Permissão do microfone negada. Clique no ícone de cadeado e permita.';
+            } else if (event.error === 'no-speech') {
+                document.getElementById('statusMicrofone').innerHTML = '️ Nenhum discurso detectado. Fale mais alto.';
+            } else {
+                document.getElementById('statusMicrofone').innerHTML = '❌ Erro: ' + event.error;
+            }
+            document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
+        };
+        
+        recognition.onend = () => {
+            if (document.getElementById('telaLeitura') && !document.getElementById('telaLeitura').classList.contains('hidden')) {
+                if (!statusSalvo) pararReconhecimento();
+            }
+        };
+        
+        recognition.start();
     }
-
+    
     function pararReconhecimento() {
         if (timerInterval) clearInterval(timerInterval);
         if (recognition) {
             try { recognition.stop(); } catch(e) {}
         }
-        
         const tempoTotal = Math.floor((Date.now() - startTime) / 1000);
         processarResultado(tempoTotal);
     }
-
-    function processarResultado(tempoTotal) {
-        const textoNorm = normalizarTexto(transcricaoFinal);
-        const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
-        
-        let acertos = 0;
-        const palavrasErradas = [];
-        
-        palavrasTexto.forEach((palavraNorm, idx) => {
-            if (palavrasLidasNorm.includes(palavraNorm)) {
-                acertos++;
-            } else {
-                if (!palavrasErradas.includes(palavrasOriginais[idx])) {
-                    palavrasErradas.push(palavrasOriginais[idx]);
-                }
-            }
-        });
-        
-        const ppm = Math.round((acertos / Math.max(tempoTotal, 1)) * 60);
-        const precisao = Math.round((acertos / palavrasTexto.length) * 100);
-        
-        let nivel = '';
-        if (precisao >= 85 && ppm >= 100) nivel = '🔵 Avançado';
-        else if (precisao >= 70 && ppm >= 70) nivel = '🟢 Proficiente';
-        else if (precisao >= 50 && ppm >= 40) nivel = '🟡 Em desenvolvimento';
-        else nivel = '🔴 Inicial';
-        
-        document.getElementById('resultadoVelocidade').textContent = `${ppm} palavras/minuto`;
-        document.getElementById('resultadoPrecisao').textContent = `${precisao}% de acertos`;
-        document.getElementById('resultadoTempo').textContent = `${tempoTotal} segundos`;
-        document.getElementById('resultadoNivel').textContent = nivel;
-        
-        if (palavrasErradas.length > 0) {
-            const divPalavras = document.getElementById('palavrasDificeis');
-            divPalavras.innerHTML = `<strong>📖 Palavras para praticar:</strong><br>${palavrasErradas.slice(0, 10).map(p => `<span class="palavra-dificil">${p}</span>`).join('')}`;
-            divPalavras.classList.remove('hidden');
-        }
-        
-        document.getElementById('telaLeitura').classList.add('hidden');
-        document.getElementById('telaResultado').classList.remove('hidden');
-        
-        if (!modoVisualizacao && !modoTeste) {
-            salvarResultado(ppm, precisao, tempoTotal, nivel, acertos, palavrasTexto.length - acertos, palavrasErradas);
-        } else {
-            mostrarMensagem('🔧 Modo Visualização - Nenhum dado foi salvo', 'info');
-        }
-    }
-
-    function mostrarMensagem(texto, tipo) {
-        const msgDiv = document.getElementById('msgSalvoResultado');
-        if (msgDiv) {
-            msgDiv.innerHTML = texto;
-            msgDiv.className = `msg-salvo ${tipo === 'sucesso' ? 'msg-sucesso' : tipo === 'info' ? 'msg-info' : 'msg-erro'}`;
-            msgDiv.classList.remove('hidden');
-            setTimeout(() => {
-                msgDiv.classList.add('hidden');
-            }, 5000);
-        }
-    }
-
-    async function salvarResultado(ppm, precisao, tempo, nivel, acertos, erros, palavrasDificeis) {
-        statusSalvo = true;
-        
-        if (!alunoId) {
-            mostrarMensagem('⚠️ Aluno não identificado - dados não salvos', 'erro');
-            return;
-        }
-        
-        const dados = {
-            atividade_id: atividadeId,
-            aluno_id: alunoId,
-            turma_id: turmaId,
-            ppm: ppm,
-            precisao: precisao,
-            tempo_segundos: tempo,
-            nivel_proficiencia: nivel,
-            transcricao_aluno: transcricaoFinal.substring(0, 2000),
-            palavras_dificeis: palavrasDificeis.slice(0, 20)
-        };
-        
-        try {
-            const { error } = await supabaseClient.from('resultados_fluencia').insert([dados]);
-            if (error) {
-                console.error('Erro ao salvar:', error);
-                mostrarMensagem(`❌ Erro ao salvar: ${error.message}`, 'erro');
-            } else {
-                mostrarMensagem('✅ Resultado salvo com sucesso!', 'sucesso');
-            }
-        } catch(e) {
-            console.error(e);
-            mostrarMensagem('❌ Erro ao conectar com o servidor', 'erro');
-        }
-    }
-
-    function reiniciarJogo() {
-        if (timerInterval) clearInterval(timerInterval);
-        if (recognition) {
-            try { recognition.stop(); } catch(e) {}
-        }
-        statusSalvo = false;
-        const btn = document.getElementById('btnIniciarLeitura');
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = '🎤 INICIAR LEITURA';
-            btn.classList.remove('btn-gravando');
-        }
-        const btnParar = document.getElementById('btnParar');
-        if (btnParar) btnParar.disabled = true;
-        document.getElementById('timerDisplay').textContent = '00:00';
-        document.getElementById('statusMicrofone').innerHTML = '';
-        // restore original text without highlights
-        const container = document.getElementById('textoComPalavras');
-        if (container) {
-            let html = '';
-            palavrasOriginais.forEach((palavra) => {
-                html += `<span class="palavra">${palavra}</span> `;
-            });
-            container.innerHTML = html;
-        }
-    }
-
-    async function iniciarJogo() {
-        jogoAtivo = true;
-        document.getElementById('telaInicial').classList.add('hidden');
-        document.getElementById('telaLeitura').classList.remove('hidden');
-        
-        // reset visual para sem destaques
-        const container = document.getElementById('textoComPalavras');
-        if (container) {
-            let html = '';
-            palavrasOriginais.forEach((palavra) => {
-                html += `<span class="palavra">${palavra}</span> `;
-            });
-            container.innerHTML = html;
-        }
-        
-        try {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
-            document.getElementById('btnIniciarLeitura').onclick = iniciarReconhecimento;
-        } catch(err) {
-            mostrarMensagem('❌ É necessário permitir o acesso ao microfone.', 'erro');
-            reiniciarJogo();
-        }
-    }
-
-    function finalizarEVoltar() {
-        if (window.opener) {
+    
+    // ==================== FINALIZAÇÃO (SEM ERRO 404) ====================
+    function finalizar() {
+        // Tenta fechar a janela (funciona se foi aberta por window.open)
+        if (window.opener && !window.opener.closed) {
+            // Opcional: notificar a janela pai
+            try {
+                window.opener.postMessage('atividade_concluida', '*');
+            } catch(e) {}
             window.close();
-        } else {
-            const params = new URLSearchParams(window.location.search);
-            const turmaId = params.get('turma_id');
-            const alunoId = params.get('aluno_id');
-            if (turmaId && alunoId) {
-                window.location.href = `https://saci-sabido.vercel.app/aluno/turma/${turmaId}/jogos/${alunoId}`;
-            } else {
-                window.location.href = 'https://saci-sabido.vercel.app';
-            }
         }
+        // Fallback: exibe mensagem com link manual, nunca redireciona para referrer quebrado
+        setTimeout(() => {
+            if (!window.closed) {
+                const fallbackDiv = document.createElement('div');
+                fallbackDiv.className = 'fallback-link';
+                fallbackDiv.innerHTML = '<p>⚠️ Não foi possível fechar automaticamente. Clique <a id="fecharManualLink" href="#">aqui</a> para voltar à lista de atividades.</p>';
+                const container = document.querySelector('.container');
+                container.appendChild(fallbackDiv);
+                document.getElementById('fecharManualLink').onclick = (e) => {
+                    e.preventDefault();
+                    // Usa a URL da página que chamou (passada por parâmetro return_url, se existir)
+                    const returnUrl = urlParams.get('return_url');
+                    if (returnUrl && returnUrl.startsWith('http')) {
+                        window.location.href = returnUrl;
+                    } else {
+                        alert('Volte manualmente para a aba do Saci Sabido e recarregue a página.');
+                    }
+                };
+                // Esconde botões para não gerar confusão
+                document.getElementById('btnConcluir').style.display = 'none';
+                document.getElementById('btnNovamente').style.display = 'none';
+            }
+        }, 300);
     }
-
-    async function carregarJogo() {
+    
+    // ==================== INICIALIZAÇÃO DA INTERFACE ====================
+    async function iniciarInterface() {
         await carregarTexto();
         
         document.getElementById('app').innerHTML = `
@@ -516,7 +558,7 @@
                     <h1>📖 Fluência Leitora</h1>
                     <p>Leia o texto em voz alta com calma e clareza</p>
                     ${modoVisualizacao ? '<div class="aviso-admin">🔧 MODO VISUALIZAÇÃO - Os dados NÃO serão salvos</div>' : ''}
-                    ${modoTeste ? '<div class="aviso-admin">🔧 MODO TESTE - Os dados NÃO serão salvos no banco</div>' : ''}
+                    ${modoTeste ? '<div class="aviso-admin">🔧 MODO TESTE - Os dados NÃO serão salvos</div>' : ''}
                     <div class="info-sesi">📚 Habilidade: EF35LP09 - Ler com fluência e precisão</div>
                     <div class="texto-leitura">${textoParaLer}</div>
                     <button id="btnComecar">🚀 INICIAR LEITURA</button>
@@ -545,7 +587,7 @@
                         <div class="resultado-valor" id="resultadoPrecisao">0% de acertos</div>
                         <h3>⏰ Tempo total</h3>
                         <div class="resultado-valor" id="resultadoTempo">0 segundos</div>
-                        <h3>📝 Nível</h3>
+                        <h3> Nível</h3>
                         <div class="resultado-valor" id="resultadoNivel">--</div>
                         <div id="palavrasDificeis" class="palavras-dificeis-container hidden"></div>
                     </div>
@@ -558,11 +600,15 @@
             </div>
         `;
         
-        document.getElementById('btnComecar').onclick = iniciarJogo;
+        // Eventos
+        document.getElementById('btnComecar').onclick = () => {
+            document.getElementById('telaInicial').classList.add('hidden');
+            document.getElementById('telaLeitura').classList.remove('hidden');
+            reiniciarJogo();
+        };
+        document.getElementById('btnIniciarLeitura').onclick = iniciarReconhecimento;
         document.getElementById('btnParar').onclick = () => {
-            if (recognition && startTime) {
-                pararReconhecimento();
-            }
+            if (recognition && startTime) pararReconhecimento();
         };
         document.getElementById('btnCancelar').onclick = () => {
             reiniciarJogo();
@@ -570,15 +616,28 @@
             document.getElementById('telaInicial').classList.remove('hidden');
         };
         document.getElementById('btnNovamente').onclick = () => {
-            statusSalvo = false;
             document.getElementById('telaResultado').classList.add('hidden');
             document.getElementById('telaInicial').classList.remove('hidden');
             reiniciarJogo();
         };
-        document.getElementById('btnConcluir').onclick = finalizarEVoltar;
+        document.getElementById('btnConcluir').onclick = finalizar;
+        
+        // Pré-autoriza microfone (pede permissão ao clicar em iniciar)
+        const btnComecar = document.getElementById('btnComecar');
+        btnComecar.onclick = async () => {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Se conseguir, vai para a tela de leitura
+                document.getElementById('telaInicial').classList.add('hidden');
+                document.getElementById('telaLeitura').classList.remove('hidden');
+                reiniciarJogo();
+            } catch (err) {
+                mostrarMensagem('❌ É necessário permitir o acesso ao microfone.', 'erro', 'msgSalvoResultado');
+            }
+        };
     }
     
-    carregarJogo();
+    iniciarInterface();
 </script>
 </body>
 </html>
