@@ -354,16 +354,16 @@
     
     async function salvarResultado(ppm, precisao, tempo, nivel, acertos, erros, palavrasDificeis, detalhesErros) {
         if (modoVisualizacao || modoTeste || !alunoId) {
-            mostrarMensagem('🔧 Modo teste/visualização - Nenhum dado foi salvo', 'info');
+            mostrarMensagem(' Modo teste/visualização - Nenhum dado foi salvo', 'info');
             return;
         }
         statusSalvo = true;
         
-        // Unificando o salvamento na tabela 'resultados' que já possui todas as colunas necessárias
+        // ✅ CORREÇÃO DEFINITIVA: jogo_id deve ser NULL para não violar FK
         const dadosResultados = {
             aluno_id: alunoId,
             atividade_id: atividadeId,
-            jogo_id: atividadeId, // Mantido para compatibilidade com colunas existentes
+            jogo_id: null, // ✅ EXPLICITAMENTE NULL para evitar violação de FK
             turma_id: turmaId,
             acertos: acertos,
             erros: erros,
@@ -447,7 +447,7 @@
         
         if (palavrasErradas.length > 0) {
             const divPalavras = document.getElementById('palavrasDificeis');
-            divPalavras.innerHTML = `<strong>📖 Palavras para praticar:</strong><br>${palavrasErradas.slice(0, 10).map(p => `<span class="palavra-dificil">${p}</span>`).join('')}`;
+            divPalavras.innerHTML = `<strong> Palavras para praticar:</strong><br>${palavrasErradas.slice(0, 10).map(p => `<span class="palavra-dificil">${p}</span>`).join('')}`;
             divPalavras.classList.remove('hidden');
         }
         
@@ -627,7 +627,7 @@
                     <div id="statusMicrofone" class="status-microfone"></div>
                     <div class="botoes-container">
                         <button id="btnIniciarLeitura">🎤 INICIAR LEITURA</button>
-                        <button id="btnParar" style="background:#ef4444;" disabled>⏹️ PARAR / FINALIZAR</button>
+                        <button id="btnParar" style="background:#ef4444;" disabled>️ PARAR / FINALIZAR</button>
                         <button id="btnCancelar" style="background:#6b7280;">❌ CANCELAR</button>
                     </div>
                 </div>
@@ -639,7 +639,7 @@
                         <div class="resultado-valor" id="resultadoVelocidade">0 palavras/minuto</div>
                         <h3>🎯 Precisão</h3>
                         <div class="resultado-valor" id="resultadoPrecisao">0% de acertos</div>
-                        <h3>⏰ Tempo total</h3>
+                        <h3> Tempo total</h3>
                         <div class="resultado-valor" id="resultadoTempo">0 segundos</div>
                         <h3>📝 Nível</h3>
                         <div class="resultado-valor" id="resultadoNivel">--</div>
