@@ -1,3 +1,4 @@
+<!-- src/pages/student/FluenciaLeitora.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -196,7 +197,9 @@
     // ==================== CONFIGURAÇÕES ====================
     const SUPABASE_URL = 'https://qmcqffnawtfaenyziwsn.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtY3FmZm5hd3RmYWVueXppd3NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNTM5NTMsImV4cCI6MjA4OTcyOTk1M30._CjaNoeJeQp-8s8Jt-dk3bJfktdEV97R5LhLnWgYrNc';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // ✅ CORREÇÃO: Usar nome diferente para evitar conflito de declaração
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
     // Parâmetros da URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -217,10 +220,10 @@
     let transcricaoFinal = "";
     let statusSalvo = false;
     let textoParaLer = "";
-    let palavrasOriginais = [];     // texto original (para exibição)
-    let palavrasNormalizadas = [];   // texto sem acentos/pontuação (para comparação)
+    let palavrasOriginais = [];
+    let palavrasNormalizadas = [];
     
-    // ✅ NOVO: Array para armazenar os detalhes dos erros
+    // Array para armazenar os detalhes dos erros
     let detalhesErrosFluencia = [];
     
     // ==================== FUNÇÕES AUXILIARES ====================
@@ -242,7 +245,7 @@
         }
         
         try {
-            const { data, error } = await supabase
+            const { data, error } = await db
                 .from('atividades_fluencia')
                 .select('texto_avaliacao, titulo')
                 .eq('id', atividadeId)
@@ -304,10 +307,10 @@
         
         try {
             // Salva na tabela resultados_fluencia
-            const { error: errorFluencia } = await supabase.from('resultados_fluencia').insert([dados]);
+            const { error: errorFluencia } = await db.from('resultados_fluencia').insert([dados]);
             if (errorFluencia) throw errorFluencia;
             
-            // ✅ NOVO: Salva também na tabela resultados com os detalhes dos erros
+            // Salva também na tabela resultados com os detalhes dos erros
             const dadosResultados = {
                 aluno_id: alunoId,
                 jogo_id: atividadeId,
@@ -324,10 +327,9 @@
                 }
             };
             
-            const { error: errorResultados } = await supabase.from('resultados').insert([dadosResultados]);
+            const { error: errorResultados } = await db.from('resultados').insert([dadosResultados]);
             if (errorResultados) {
                 console.error('Erro ao salvar em resultados:', errorResultados);
-                // Não lança erro - o importante é que salvou em resultados_fluencia
             }
             
             mostrarMensagem('✅ Resultado salvo com sucesso!', 'sucesso');
@@ -350,7 +352,7 @@
         const palavrasErradas = [];
         const errosDetalhados = [];
         
-        // ✅ NOVO: Capturar detalhes de cada erro
+        // Capturar detalhes de cada erro
         palavrasNormalizadas.forEach((palavraNorm, idx) => {
             if (palavrasLidasNorm.includes(palavraNorm)) {
                 acertos++;
@@ -381,7 +383,7 @@
         const precisao = Math.round((acertos / palavrasNormalizadas.length) * 100);
         let nivel = '';
         if (precisao >= 85 && ppm >= 100) nivel = '🔵 Avançado';
-        else if (precisao >= 70 && ppm >= 70) nivel = ' Proficiente';
+        else if (precisao >= 70 && ppm >= 70) nivel = '🟢 Proficiente';
         else if (precisao >= 50 && ppm >= 40) nivel = '🟡 Em desenvolvimento';
         else nivel = '🔴 Inicial';
         
@@ -400,7 +402,7 @@
         document.getElementById('telaLeitura').classList.add('hidden');
         document.getElementById('telaResultado').classList.remove('hidden');
         
-        // ✅ Salva com os detalhes dos erros
+        // Salva com os detalhes dos erros
         salvarResultado(ppm, precisao, tempoTotal, nivel, acertos, palavrasNormalizadas.length - acertos, palavrasErradas, errosDetalhados);
     }
     
@@ -411,7 +413,7 @@
         }
         transcricaoFinal = "";
         statusSalvo = false;
-        detalhesErrosFluencia = []; // ✅ Resetar array de erros
+        detalhesErrosFluencia = [];
         
         const btn = document.getElementById('btnIniciarLeitura');
         if (btn) {
@@ -425,7 +427,6 @@
         document.getElementById('statusMicrofone').innerHTML = '';
         document.getElementById('statusMicrofone').className = 'status-microfone';
         
-        // Reset visual sem destaques
         const container = document.getElementById('textoComPalavras');
         if (container) {
             let html = '';
@@ -442,7 +443,7 @@
         btn.textContent = '🎤 Gravando...';
         btn.classList.add('btn-gravando');
         
-        document.getElementById('statusMicrofone').innerHTML = '🎤 Microfone ativo - Leia o texto em voz alta';
+        document.getElementById('statusMicrofone').innerHTML = ' Microfone ativo - Leia o texto em voz alta';
         document.getElementById('statusMicrofone').className = 'status-microfone status-ok';
         document.getElementById('btnParar').disabled = false;
         
@@ -456,7 +457,7 @@
             document.getElementById('timerDisplay').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             if (elapsed >= 120 && !statusSalvo) {
                 pararReconhecimento();
-                mostrarMensagem(' Tempo limite de 2 minutos atingido.', 'erro', 'msgSalvoResultado');
+                mostrarMensagem('⏰ Tempo limite de 2 minutos atingido.', 'erro', 'msgSalvoResultado');
             }
         }, 1000);
         
@@ -480,13 +481,13 @@
             const textoNorm = normalizarTexto(transcricaoFinal);
             const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
             atualizarFeedbackVisual(palavrasLidasNorm);
-            document.getElementById('statusMicrofone').innerHTML = '🎤 Leitura em andamento... Fale pausadamente';
+            document.getElementById('statusMicrofone').innerHTML = ' Leitura em andamento... Fale pausadamente';
         };
         
         recognition.onerror = (event) => {
             console.error(event.error);
             if (event.error === 'not-allowed') {
-                document.getElementById('statusMicrofone').innerHTML = '❌ Permissão do microfone negada. Clique no ícone de cadeado e permita.';
+                document.getElementById('statusMicrofone').innerHTML = ' Permissão do microfone negada. Clique no ícone de cadeado e permita.';
             } else if (event.error === 'no-speech') {
                 document.getElementById('statusMicrofone').innerHTML = '️ Nenhum discurso detectado. Fale mais alto.';
             } else {
@@ -513,42 +514,35 @@
         processarResultado(tempoTotal);
     }
     
-    // ==================== FINALIZAÇÃO (SEM ERRO 404) ====================
     function finalizar() {
-        // Tenta fechar a janela (funciona se foi aberta por window.open)
         if (window.opener && !window.opener.closed) {
-            // Opcional: notificar a janela pai
             try {
                 window.opener.postMessage('atividade_concluida', '*');
             } catch(e) {}
             window.close();
         }
-        // Fallback: exibe mensagem com link manual, nunca redireciona para referrer quebrado
         setTimeout(() => {
             if (!window.closed) {
                 const fallbackDiv = document.createElement('div');
                 fallbackDiv.className = 'fallback-link';
-                fallbackDiv.innerHTML = '<p>⚠️ Não foi possível fechar automaticamente. Clique <a id="fecharManualLink" href="#">aqui</a> para voltar à lista de atividades.</p>';
+                fallbackDiv.innerHTML = '<p>️ Não foi possível fechar automaticamente. Clique <a id="fecharManualLink" href="#">aqui</a> para voltar à lista de atividades.</p>';
                 const container = document.querySelector('.container');
                 container.appendChild(fallbackDiv);
                 document.getElementById('fecharManualLink').onclick = (e) => {
                     e.preventDefault();
-                    // Usa a URL da página que chamou (passada por parâmetro return_url, se existir)
                     const returnUrl = urlParams.get('return_url');
                     if (returnUrl && returnUrl.startsWith('http')) {
                         window.location.href = returnUrl;
                     } else {
-                        alert('Volte manualmente para a aba do Saci Sabido e recarregue a página.');
+                        mostrarMensagem('Volte manualmente para a aba do Saci Sabido e recarregue a página.', 'info');
                     }
                 };
-                // Esconde botões para não gerar confusão
                 document.getElementById('btnConcluir').style.display = 'none';
                 document.getElementById('btnNovamente').style.display = 'none';
             }
         }, 300);
     }
     
-    // ==================== INICIALIZAÇÃO DA INTERFACE ====================
     async function iniciarInterface() {
         await carregarTexto();
         
@@ -587,7 +581,7 @@
                         <div class="resultado-valor" id="resultadoPrecisao">0% de acertos</div>
                         <h3>⏰ Tempo total</h3>
                         <div class="resultado-valor" id="resultadoTempo">0 segundos</div>
-                        <h3> Nível</h3>
+                        <h3>📝 Nível</h3>
                         <div class="resultado-valor" id="resultadoNivel">--</div>
                         <div id="palavrasDificeis" class="palavras-dificeis-container hidden"></div>
                     </div>
@@ -600,11 +594,15 @@
             </div>
         `;
         
-        // Eventos
-        document.getElementById('btnComecar').onclick = () => {
-            document.getElementById('telaInicial').classList.add('hidden');
-            document.getElementById('telaLeitura').classList.remove('hidden');
-            reiniciarJogo();
+        document.getElementById('btnComecar').onclick = async () => {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                document.getElementById('telaInicial').classList.add('hidden');
+                document.getElementById('telaLeitura').classList.remove('hidden');
+                reiniciarJogo();
+            } catch (err) {
+                mostrarMensagem('❌ É necessário permitir o acesso ao microfone.', 'erro', 'msgSalvoResultado');
+            }
         };
         document.getElementById('btnIniciarLeitura').onclick = iniciarReconhecimento;
         document.getElementById('btnParar').onclick = () => {
@@ -621,23 +619,10 @@
             reiniciarJogo();
         };
         document.getElementById('btnConcluir').onclick = finalizar;
-        
-        // Pré-autoriza microfone (pede permissão ao clicar em iniciar)
-        const btnComecar = document.getElementById('btnComecar');
-        btnComecar.onclick = async () => {
-            try {
-                await navigator.mediaDevices.getUserMedia({ audio: true });
-                // Se conseguir, vai para a tela de leitura
-                document.getElementById('telaInicial').classList.add('hidden');
-                document.getElementById('telaLeitura').classList.remove('hidden');
-                reiniciarJogo();
-            } catch (err) {
-                mostrarMensagem('❌ É necessário permitir o acesso ao microfone.', 'erro', 'msgSalvoResultado');
-            }
-        };
     }
     
     iniciarInterface();
 </script>
 </body>
 </html>
+<!-- FIM: src/pages/student/FluenciaLeitora.html -->
