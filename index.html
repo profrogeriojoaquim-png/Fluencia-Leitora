@@ -206,6 +206,39 @@
             transition: width 0.1s ease, background-color 0.3s ease;
             border-radius: 7px;
         }
+
+        /* ✅ NOVO: Estilo para transcrição */
+        .transcricao-container {
+            background: #f0f9ff;
+            border: 2px solid #7dd3fc;
+            border-radius: 20px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .transcricao-titulo {
+            font-size: 16px;
+            font-weight: bold;
+            color: #0369a1;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .transcricao-texto {
+            font-size: 18px;
+            line-height: 1.6;
+            color: #0c4a6e;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            min-height: 60px;
+            font-style: italic;
+        }
+        .transcricao-vazia {
+            color: #94a3b8;
+            text-align: center;
+        }
         
         @media (max-width: 768px) {
             .container { padding: 20px; }
@@ -302,6 +335,37 @@
         }
     }
     
+    // ✅ NOVA FUNÇÃO: Ler transcrição em voz alta
+    function lerTranscricaoVozAlta() {
+        if (!transcricaoFinal || transcricaoFinal.trim() === '') {
+            mostrarMensagem('Nenhuma transcrição disponível para ouvir.', 'info');
+            return;
+        }
+        
+        // Cancelar qualquer fala anterior
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(transcricaoFinal);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.9; // Velocidade um pouco mais lenta
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        utterance.onstart = () => {
+            console.log('Iniciando leitura da transcrição');
+        };
+        
+        utterance.onend = () => {
+            console.log('Leitura da transcrição concluída');
+        };
+        
+        utterance.onerror = (event) => {
+            console.error('Erro na síntese de voz:', event);
+        };
+        
+        window.speechSynthesis.speak(utterance);
+    }
+    
     async function carregarTexto() {
         if (modoVisualizacao || modoTeste) {
             textoParaLer = "O pequeno Saci Sabido encontrou um mistério na mata. Ele usou sua inteligência para resolver o problema sem usar o cachimbo, apenas com sabedoria e envolvimento.";
@@ -359,11 +423,10 @@
         }
         statusSalvo = true;
         
-        // ✅ CORREÇÃO DEFINITIVA: jogo_id deve ser NULL para não violar FK
         const dadosResultados = {
             aluno_id: alunoId,
             atividade_id: atividadeId,
-            jogo_id: null, // ✅ EXPLICITAMENTE NULL para evitar violação de FK
+            jogo_id: null,
             turma_id: turmaId,
             acertos: acertos,
             erros: erros,
@@ -427,23 +490,34 @@
             }
         });
         
-        // Cálculo corrigido e consistente de PPM
         const tempoSegundos = Math.max(tempoTotal, 1);
         const ppm = Math.round((acertos / tempoSegundos) * 60);
         const precisao = palavrasNormalizadas.length > 0 ? Math.round((acertos / palavrasNormalizadas.length) * 100) : 0;
         
         let nivel = '';
-        if (precisao >= 85 && ppm >= 100) nivel = '🔵 Avançado';
+        if (precisao >= 85 && ppm >= 100) nivel = ' Avançado';
         else if (precisao >= 70 && ppm >= 70) nivel = '🟢 Proficiente';
         else if (precisao >= 50 && ppm >= 40) nivel = '🟡 Em desenvolvimento';
         else nivel = '🔴 Inicial';
         
         console.log('Debug Cálculo:', { acertos, tempoSegundos, ppm, precisao, totalPalavras: palavrasNormalizadas.length });
+        console.log('Debug Transcrição:', transcricaoFinal);
+        console.log('Debug Palavras Lidas:', palavrasLidasNorm);
 
         document.getElementById('resultadoVelocidade').textContent = `${ppm} palavras/minuto`;
         document.getElementById('resultadoPrecisao').textContent = `${precisao}% de acertos`;
         document.getElementById('resultadoTempo').textContent = `${tempoTotal} segundos`;
         document.getElementById('resultadoNivel').textContent = nivel;
+        
+        // ✅ Atualizar transcrição na tela de resultado
+        const transcricaoDiv = document.getElementById('transcricaoTexto');
+        if (transcricaoDiv) {
+            if (transcricaoFinal.trim()) {
+                transcricaoDiv.innerHTML = `<div class="transcricao-texto">${transcricaoFinal}</div>`;
+            } else {
+                transcricaoDiv.innerHTML = `<div class="transcricao-texto transcricao-vazia">Nenhuma palavra foi capturada. Tente falar mais alto e próximo ao microfone.</div>`;
+            }
+        }
         
         if (palavrasErradas.length > 0) {
             const divPalavras = document.getElementById('palavrasDificeis');
@@ -491,7 +565,7 @@
     function iniciarReconhecimento() {
         const btn = document.getElementById('btnIniciarLeitura');
         btn.disabled = true;
-        btn.textContent = '🎤 Gravando...';
+        btn.textContent = ' Gravando...';
         btn.classList.add('btn-gravando');
         
         document.getElementById('statusMicrofone').innerHTML = '🎙️ Microfone ativo - Leia o texto em voz alta';
@@ -508,52 +582,77 @@
             document.getElementById('timerDisplay').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             if (elapsed >= 120 && !statusSalvo) {
                 pararReconhecimento();
-                mostrarMensagem('⏰ Tempo limite de 2 minutos atingido.', 'erro', 'msgSalvoResultado');
+                mostrarMensagem(' Tempo limite de 2 minutos atingido.', 'erro', 'msgSalvoResultado');
             }
         }, 1000);
         
-        if (!('webkitSpeechRecognition' in window)) {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
             mostrarMensagem('Seu navegador não suporta reconhecimento de voz. Use Google Chrome ou Edge.', 'erro', 'msgSalvoResultado');
-            pararReconhecimento();
+            document.getElementById('statusMicrofone').innerHTML = '❌ Navegador não compatível';
+            document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
             return;
         }
         
-        recognition = new webkitSpeechRecognition();
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
         recognition.lang = 'pt-BR';
         recognition.continuous = true;
         recognition.interimResults = true;
         
+        recognition.onstart = () => {
+            console.log('Reconhecimento de voz iniciado');
+            document.getElementById('statusMicrofone').innerHTML = '️ Ouvindo... Leia o texto em voz alta';
+        };
+        
         recognition.onresult = (event) => {
+            console.log('Evento de resultado:', event);
             for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                console.log('Transcrição:', transcript, 'Final:', event.results[i].isFinal);
                 if (event.results[i].isFinal) {
-                    transcricaoFinal += event.results[i][0].transcript + " ";
+                    transcricaoFinal += transcript + " ";
+                    console.log('Transcrição final acumulada:', transcricaoFinal);
                 }
             }
             const textoNorm = normalizarTexto(transcricaoFinal);
             const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
             atualizarFeedbackVisual(palavrasLidasNorm);
-            document.getElementById('statusMicrofone').innerHTML = '🎙️ Leitura em andamento... Fale pausadamente';
         };
         
         recognition.onerror = (event) => {
             console.error('Erro no reconhecimento:', event.error);
             if (event.error === 'not-allowed') {
-                document.getElementById('statusMicrofone').innerHTML = '🔒 Permissão do microfone negada. Clique no ícone de cadeado e permita.';
+                document.getElementById('statusMicrofone').innerHTML = '🔒 Permissão do microfone negada. Atualize a página e permita.';
+                document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
             } else if (event.error === 'no-speech') {
-                document.getElementById('statusMicrofone').innerHTML = '🔇 Nenhum discurso detectado. Fale mais alto.';
+                document.getElementById('statusMicrofone').innerHTML = '🔇 Nenhum som detectado. Verifique o microfone e fale mais alto.';
+                document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
+            } else if (event.error === 'audio-capture') {
+                document.getElementById('statusMicrofone').innerHTML = '🎤 Nenhum microfone encontrado. Conecte um microfone.';
+                document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
             } else {
                 document.getElementById('statusMicrofone').innerHTML = '❌ Erro: ' + event.error;
+                document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
             }
-            document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
         };
         
         recognition.onend = () => {
+            console.log('Reconhecimento encerrado');
             if (document.getElementById('telaLeitura') && !document.getElementById('telaLeitura').classList.contains('hidden')) {
-                if (!statusSalvo) pararReconhecimento();
+                if (!statusSalvo) {
+                    pararReconhecimento();
+                }
             }
         };
         
-        recognition.start();
+        try {
+            recognition.start();
+            console.log('Reconhecimento iniciado com sucesso');
+        } catch (e) {
+            console.error('Erro ao iniciar reconhecimento:', e);
+            document.getElementById('statusMicrofone').innerHTML = '❌ Erro ao iniciar: ' + e.message;
+            document.getElementById('statusMicrofone').className = 'status-microfone status-erro';
+        }
     }
     
     function pararReconhecimento() {
@@ -577,7 +676,7 @@
             if (!window.closed) {
                 const fallbackDiv = document.createElement('div');
                 fallbackDiv.className = 'fallback-link';
-                fallbackDiv.innerHTML = '<p>ℹ️ Não foi possível fechar automaticamente. Clique <a id="fecharManualLink" href="#">aqui</a> para voltar à lista de atividades.</p>';
+                fallbackDiv.innerHTML = '<p>️ Não foi possível fechar automaticamente. Clique <a id="fecharManualLink" href="#">aqui</a> para voltar à lista de atividades.</p>';
                 const container = document.querySelector('.container');
                 container.appendChild(fallbackDiv);
                 document.getElementById('fecharManualLink').onclick = (e) => {
@@ -605,7 +704,7 @@
                     <p>Leia o texto em voz alta com calma e clareza</p>
                     ${modoVisualizacao ? '<div class="aviso-admin">🔧 MODO VISUALIZAÇÃO - Os dados NÃO serão salvos</div>' : ''}
                     ${modoTeste ? '<div class="aviso-admin">🔧 MODO TESTE - Os dados NÃO serão salvos</div>' : ''}
-                    <div class="info-sesi">📚 Habilidade: EF35LP09 - Ler com fluência e precisão</div>
+                    <div class="info-sesi"> Habilidade: EF35LP09 - Ler com fluência e precisão</div>
                     <div class="texto-leitura">${textoParaLer}</div>
                     <button id="btnComecar">🚀 INICIAR LEITURA</button>
                 </div>
@@ -615,7 +714,7 @@
                     <div class="timer" id="timerDisplay">00:00</div>
                     
                     <div class="volume-container">
-                        <div class="volume-label">🎤 Nível do Microfone (Fale para testar)</div>
+                        <div class="volume-label"> Nível do Microfone (Fale para testar)</div>
                         <div class="volume-bar-bg">
                             <div class="volume-bar-fill" id="volumeIndicator"></div>
                         </div>
@@ -626,7 +725,7 @@
                     </div>
                     <div id="statusMicrofone" class="status-microfone"></div>
                     <div class="botoes-container">
-                        <button id="btnIniciarLeitura">🎤 INICIAR LEITURA</button>
+                        <button id="btnIniciarLeitura"> INICIAR LEITURA</button>
                         <button id="btnParar" style="background:#ef4444;" disabled>️ PARAR / FINALIZAR</button>
                         <button id="btnCancelar" style="background:#6b7280;">❌ CANCELAR</button>
                     </div>
@@ -635,7 +734,7 @@
                 <div id="telaResultado" class="hidden">
                     <h1>📊 Resultado da Proficiência</h1>
                     <div class="resultado-card">
-                        <h3>⏱️ Velocidade</h3>
+                        <h3>️ Velocidade</h3>
                         <div class="resultado-valor" id="resultadoVelocidade">0 palavras/minuto</div>
                         <h3>🎯 Precisão</h3>
                         <div class="resultado-valor" id="resultadoPrecisao">0% de acertos</div>
@@ -644,6 +743,19 @@
                         <h3>📝 Nível</h3>
                         <div class="resultado-valor" id="resultadoNivel">--</div>
                         <div id="palavrasDificeis" class="palavras-dificeis-container hidden"></div>
+                        
+                        <!-- ✅ NOVA SEÇÃO: Transcrição -->
+                        <div class="transcricao-container" id="transcricaoContainer">
+                            <div class="transcricao-titulo">
+                                🔊 O que você leu:
+                                <button onclick="lerTranscricaoVozAlta()" style="padding: 6px 12px; font-size: 14px; margin-left: auto;" title="Ouvir transcrição">
+                                    🔊 Ouvir
+                                </button>
+                            </div>
+                            <div id="transcricaoTexto">
+                                <div class="transcricao-texto transcricao-vazia">Carregando...</div>
+                            </div>
+                        </div>
                     </div>
                     <div id="msgSalvoResultado" class="msg-salvo hidden"></div>
                     <div class="botoes-container">
@@ -664,6 +776,8 @@
                     } 
                 });
                 
+                console.log('Microfone acessado com sucesso');
+                
                 if (!window.audioContext || window.audioContext.state === 'closed') {
                     window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 }
@@ -680,8 +794,16 @@
                 document.getElementById('telaInicial').classList.add('hidden');
                 document.getElementById('telaLeitura').classList.remove('hidden');
                 reiniciarJogo();
+                
             } catch (err) {
-                mostrarMensagem('❌ É necessário permitir o acesso ao microfone para continuar.', 'erro', 'msgSalvoResultado');
+                console.error('Erro ao acessar microfone:', err);
+                if (err.name === 'NotAllowedError') {
+                    mostrarMensagem('❌ Permissão do microfone negada. Atualize a página e permita o acesso.', 'erro', 'msgSalvoResultado');
+                } else if (err.name === 'NotFoundError') {
+                    mostrarMensagem('❌ Nenhum microfone encontrado. Conecte um microfone e tente novamente.', 'erro', 'msgSalvoResultado');
+                } else {
+                    mostrarMensagem(' Erro ao acessar microfone: ' + err.message, 'erro', 'msgSalvoResultado');
+                }
             }
         };
 
