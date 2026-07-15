@@ -178,6 +178,35 @@
             text-decoration: underline;
             cursor: pointer;
         }
+
+        /* Estilos para o Indicador de Volume do Microfone */
+        .volume-container {
+            margin: 15px 0;
+            text-align: center;
+        }
+        .volume-label {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .volume-bar-bg {
+            width: 100%;
+            max-width: 300px;
+            height: 14px;
+            background: #e2e8f0;
+            border-radius: 7px;
+            margin: 0 auto;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+        }
+        .volume-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #10b981;
+            transition: width 0.1s ease, background-color 0.3s ease;
+            border-radius: 7px;
+        }
         
         @media (max-width: 768px) {
             .container { padding: 20px; }
@@ -198,10 +227,8 @@
     const SUPABASE_URL = 'https://qmcqffnawtfaenyziwsn.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtY3FmZm5hd3RmYWVueXppd3NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNTM5NTMsImV4cCI6MjA4OTcyOTk1M30._CjaNoeJeQp-8s8Jt-dk3bJfktdEV97R5LhLnWgYrNc';
     
-    // ✅ CORREÇÃO: Usar nome diferente para evitar conflito de declaração
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
-    // Parâmetros da URL
     const urlParams = new URLSearchParams(window.location.search);
     const atividadeId = urlParams.get('atividade_id');
     const alunoId = urlParams.get('aluno_id');
@@ -209,10 +236,8 @@
     const escolaId = urlParams.get('escola_id');
     const modoTeste = urlParams.get('modo_teste') === 'true';
     
-    // Modo visualização (sem salvar) se faltar parâmetros essenciais
     const modoVisualizacao = (!atividadeId || !turmaId || !alunoId);
     
-    // Variáveis de estado
     let jogoAtivo = false;
     let startTime = null;
     let timerInterval = null;
@@ -223,8 +248,15 @@
     let palavrasOriginais = [];
     let palavrasNormalizadas = [];
     
-    // Array para armazenar os detalhes dos erros
     let detalhesErrosFluencia = [];
+
+    // Variáveis para o Web Audio API (Indicador de Volume)
+    window.audioContext = null;
+    window.analyser = null;
+    window.microphoneStream = null;
+    window.bufferLength = 0;
+    window.dataArray = null;
+    window.animationFrameId = null;
     
     // ==================== FUNÇÕES AUXILIARES ====================
     function normalizarTexto(txt) {
@@ -234,6 +266,43 @@
             .replace(/[.,!?;:()"']/g, '')
             .replace(/\s+/g, ' ')
             .trim();
+    }
+
+    function checkVolume() {
+        window.animationFrameId = requestAnimationFrame(checkVolume);
+        if (window.analyser) {
+            window.analyser.getByteFrequencyData(window.dataArray);
+            let sum = 0;
+            for (let i = 0; i < window.bufferLength; i++) {
+                sum += window.dataArray[i];
+            }
+            let average = sum / window.bufferLength;
+            // Ajuste de escala para melhor visualização (0 a 100)
+            let volume = Math.min(100, average * 2.5); 
+            
+            const indicator = document.getElementById('volumeIndicator');
+            if(indicator) {
+                indicator.style.width = volume + '%';
+                if (volume > 60) indicator.style.background = '#10b981'; // Verde (Bom)
+                else if (volume > 25) indicator.style.background = '#f59e0b'; // Amarelo (Médio)
+                else indicator.style.background = '#ef4444'; // Vermelho (Baixo)
+            }
+        }
+    }
+
+    function limparRecursosAudio() {
+        if (window.animationFrameId) {
+            cancelAnimationFrame(window.animationFrameId);
+            window.animationFrameId = null;
+        }
+        if (window.microphoneStream) {
+            window.microphoneStream.getTracks().forEach(track => track.stop());
+            window.microphoneStream = null;
+        }
+        if (window.audioContext && window.audioContext.state !== 'closed') {
+            try { window.audioContext.close(); } catch(e) {}
+            window.audioContext = null;
+        }
     }
     
     async function carregarTexto() {
@@ -306,11 +375,9 @@
         };
         
         try {
-            // Salva na tabela resultados_fluencia
             const { error: errorFluencia } = await db.from('resultados_fluencia').insert([dados]);
             if (errorFluencia) throw errorFluencia;
             
-            // Salva também na tabela resultados com os detalhes dos erros
             const dadosResultados = {
                 aluno_id: alunoId,
                 jogo_id: atividadeId,
@@ -352,7 +419,6 @@
         const palavrasErradas = [];
         const errosDetalhados = [];
         
-        // Capturar detalhes de cada erro
         palavrasNormalizadas.forEach((palavraNorm, idx) => {
             if (palavrasLidasNorm.includes(palavraNorm)) {
                 acertos++;
@@ -361,7 +427,6 @@
                 if (!palavrasErradas.includes(palavraOriginal)) {
                     palavrasErradas.push(palavraOriginal);
                     
-                    // Verifica se o aluno tentou ler algo parecido
                     const tentativa = palavrasLidasNorm.find(p => 
                         p.length > 2 && (
                             p.includes(palavraNorm.substring(0, 3)) ||
@@ -387,7 +452,6 @@
         else if (precisao >= 50 && ppm >= 40) nivel = '🟡 Em desenvolvimento';
         else nivel = '🔴 Inicial';
         
-        // Exibir resultados
         document.getElementById('resultadoVelocidade').textContent = `${ppm} palavras/minuto`;
         document.getElementById('resultadoPrecisao').textContent = `${precisao}% de acertos`;
         document.getElementById('resultadoTempo').textContent = `${tempoTotal} segundos`;
@@ -402,7 +466,6 @@
         document.getElementById('telaLeitura').classList.add('hidden');
         document.getElementById('telaResultado').classList.remove('hidden');
         
-        // Salva com os detalhes dos erros
         salvarResultado(ppm, precisao, tempoTotal, nivel, acertos, palavrasNormalizadas.length - acertos, palavrasErradas, errosDetalhados);
     }
     
@@ -443,7 +506,7 @@
         btn.textContent = '🎤 Gravando...';
         btn.classList.add('btn-gravando');
         
-        document.getElementById('statusMicrofone').innerHTML = ' Microfone ativo - Leia o texto em voz alta';
+        document.getElementById('statusMicrofone').innerHTML = '🎙️ Microfone ativo - Leia o texto em voz alta';
         document.getElementById('statusMicrofone').className = 'status-microfone status-ok';
         document.getElementById('btnParar').disabled = false;
         
@@ -481,15 +544,15 @@
             const textoNorm = normalizarTexto(transcricaoFinal);
             const palavrasLidasNorm = textoNorm.split(' ').filter(w => w.length > 0);
             atualizarFeedbackVisual(palavrasLidasNorm);
-            document.getElementById('statusMicrofone').innerHTML = ' Leitura em andamento... Fale pausadamente';
+            document.getElementById('statusMicrofone').innerHTML = '🎙️ Leitura em andamento... Fale pausadamente';
         };
         
         recognition.onerror = (event) => {
             console.error(event.error);
             if (event.error === 'not-allowed') {
-                document.getElementById('statusMicrofone').innerHTML = ' Permissão do microfone negada. Clique no ícone de cadeado e permita.';
+                document.getElementById('statusMicrofone').innerHTML = '🔒 Permissão do microfone negada. Clique no ícone de cadeado e permita.';
             } else if (event.error === 'no-speech') {
-                document.getElementById('statusMicrofone').innerHTML = '️ Nenhum discurso detectado. Fale mais alto.';
+                document.getElementById('statusMicrofone').innerHTML = '🔇 Nenhum discurso detectado. Fale mais alto.';
             } else {
                 document.getElementById('statusMicrofone').innerHTML = '❌ Erro: ' + event.error;
             }
@@ -515,6 +578,7 @@
     }
     
     function finalizar() {
+        limparRecursosAudio(); // Libera o microfone ao finalizar
         if (window.opener && !window.opener.closed) {
             try {
                 window.opener.postMessage('atividade_concluida', '*');
@@ -525,7 +589,7 @@
             if (!window.closed) {
                 const fallbackDiv = document.createElement('div');
                 fallbackDiv.className = 'fallback-link';
-                fallbackDiv.innerHTML = '<p>️ Não foi possível fechar automaticamente. Clique <a id="fecharManualLink" href="#">aqui</a> para voltar à lista de atividades.</p>';
+                fallbackDiv.innerHTML = '<p>ℹ️ Não foi possível fechar automaticamente. Clique <a id="fecharManualLink" href="#">aqui</a> para voltar à lista de atividades.</p>';
                 const container = document.querySelector('.container');
                 container.appendChild(fallbackDiv);
                 document.getElementById('fecharManualLink').onclick = (e) => {
@@ -561,6 +625,14 @@
                 <div id="telaLeitura" class="hidden">
                     <h2>🎤 Leia em voz alta</h2>
                     <div class="timer" id="timerDisplay">00:00</div>
+                    
+                    <div class="volume-container">
+                        <div class="volume-label">🎤 Nível do Microfone (Fale para testar)</div>
+                        <div class="volume-bar-bg">
+                            <div class="volume-bar-fill" id="volumeIndicator"></div>
+                        </div>
+                    </div>
+
                     <div class="texto-leitura" id="textoComPalavras">
                         ${palavrasOriginais.map(p => `<span class="palavra">${p}</span>`).join(' ')}
                     </div>
@@ -596,28 +668,58 @@
         
         document.getElementById('btnComecar').onclick = async () => {
             try {
-                await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Solicita microfone com filtros nativos de melhoria de áudio
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { 
+                        echoCancellation: true, 
+                        noiseSuppression: true, 
+                        autoGainControl: true 
+                    } 
+                });
+                
+                // Configura Web Audio API para o indicador de volume
+                if (!window.audioContext || window.audioContext.state === 'closed') {
+                    window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                window.microphoneStream = stream;
+                const source = window.audioContext.createMediaStreamSource(stream);
+                window.analyser = window.audioContext.createAnalyser();
+                window.analyser.fftSize = 256;
+                source.connect(window.analyser);
+                window.bufferLength = window.analyser.frequencyBinCount;
+                window.dataArray = new Uint8Array(window.bufferLength);
+                
+                // Inicia a animação do indicador de volume
+                checkVolume();
+
                 document.getElementById('telaInicial').classList.add('hidden');
                 document.getElementById('telaLeitura').classList.remove('hidden');
                 reiniciarJogo();
             } catch (err) {
-                mostrarMensagem('❌ É necessário permitir o acesso ao microfone.', 'erro', 'msgSalvoResultado');
+                mostrarMensagem('❌ É necessário permitir o acesso ao microfone para continuar.', 'erro', 'msgSalvoResultado');
             }
         };
+
         document.getElementById('btnIniciarLeitura').onclick = iniciarReconhecimento;
+        
         document.getElementById('btnParar').onclick = () => {
             if (recognition && startTime) pararReconhecimento();
         };
+        
         document.getElementById('btnCancelar').onclick = () => {
             reiniciarJogo();
             document.getElementById('telaLeitura').classList.add('hidden');
             document.getElementById('telaInicial').classList.remove('hidden');
+            limparRecursosAudio(); // Libera o microfone ao cancelar
         };
+        
         document.getElementById('btnNovamente').onclick = () => {
             document.getElementById('telaResultado').classList.add('hidden');
             document.getElementById('telaInicial').classList.remove('hidden');
+            limparRecursosAudio(); // Libera o microfone ao voltar para tela inicial
             reiniciarJogo();
         };
+        
         document.getElementById('btnConcluir').onclick = finalizar;
     }
     
