@@ -179,7 +179,6 @@
             cursor: pointer;
         }
 
-        /* Estilos para o Indicador de Volume do Microfone */
         .volume-container {
             margin: 15px 0;
             text-align: center;
@@ -250,7 +249,6 @@
     
     let detalhesErrosFluencia = [];
 
-    // Variáveis para o Web Audio API (Indicador de Volume)
     window.audioContext = null;
     window.analyser = null;
     window.microphoneStream = null;
@@ -277,15 +275,14 @@
                 sum += window.dataArray[i];
             }
             let average = sum / window.bufferLength;
-            // Ajuste de escala para melhor visualização (0 a 100)
             let volume = Math.min(100, average * 2.5); 
             
             const indicator = document.getElementById('volumeIndicator');
             if(indicator) {
                 indicator.style.width = volume + '%';
-                if (volume > 60) indicator.style.background = '#10b981'; // Verde (Bom)
-                else if (volume > 25) indicator.style.background = '#f59e0b'; // Amarelo (Médio)
-                else indicator.style.background = '#ef4444'; // Vermelho (Baixo)
+                if (volume > 60) indicator.style.background = '#10b981';
+                else if (volume > 25) indicator.style.background = '#f59e0b';
+                else indicator.style.background = '#ef4444';
             }
         }
     }
@@ -362,46 +359,32 @@
         }
         statusSalvo = true;
         
-        const dados = {
-            atividade_id: atividadeId,
+        // Unificando o salvamento na tabela 'resultados' que já possui todas as colunas necessárias
+        const dadosResultados = {
             aluno_id: alunoId,
+            atividade_id: atividadeId,
+            jogo_id: atividadeId, // Mantido para compatibilidade com colunas existentes
             turma_id: turmaId,
-            ppm: ppm,
-            precisao: precisao,
+            acertos: acertos,
+            erros: erros,
+            habilidade_bncc: 'EF35LP09',
             tempo_segundos: tempo,
+            total_questoes: palavrasNormalizadas.length,
+            detalhes_erros: detalhesErros,
+            tipo_atividade: 'Fluência Leitora',
+            ppm: ppm,
             nivel_proficiencia: nivel,
-            transcricao_aluno: transcricaoFinal.substring(0, 2000),
-            palavras_dificeis: palavrasDificeis.slice(0, 20)
+            texto_avaliacao: textoParaLer.substring(0, 1000),
+            transcricao_aluno: transcricaoFinal.substring(0, 2000)
         };
         
         try {
-            const { error: errorFluencia } = await db.from('resultados_fluencia').insert([dados]);
-            if (errorFluencia) throw errorFluencia;
-            
-            const dadosResultados = {
-                aluno_id: alunoId,
-                jogo_id: atividadeId,
-                turma_id: turmaId,
-                acertos: acertos,
-                erros: erros,
-                habilidade_bncc: 'EF35LP09',
-                tempo_segundos: tempo,
-                total_questoes: palavrasNormalizadas.length,
-                detalhes_erros: detalhesErros,
-                jogos: {
-                    nome: 'Fluência Leitora',
-                    codigo_bncc: 'Fluência Leitora'
-                }
-            };
-            
             const { error: errorResultados } = await db.from('resultados').insert([dadosResultados]);
-            if (errorResultados) {
-                console.error('Erro ao salvar em resultados:', errorResultados);
-            }
+            if (errorResultados) throw errorResultados;
             
             mostrarMensagem('✅ Resultado salvo com sucesso!', 'sucesso');
         } catch (e) {
-            console.error(e);
+            console.error('Erro ao salvar resultado:', e);
             mostrarMensagem(`❌ Erro ao salvar: ${e.message}`, 'erro');
         }
     }
@@ -444,14 +427,19 @@
             }
         });
         
-        const ppm = Math.round((acertos / Math.max(tempoTotal, 1)) * 60);
-        const precisao = Math.round((acertos / palavrasNormalizadas.length) * 100);
+        // Cálculo corrigido e consistente de PPM
+        const tempoSegundos = Math.max(tempoTotal, 1);
+        const ppm = Math.round((acertos / tempoSegundos) * 60);
+        const precisao = palavrasNormalizadas.length > 0 ? Math.round((acertos / palavrasNormalizadas.length) * 100) : 0;
+        
         let nivel = '';
         if (precisao >= 85 && ppm >= 100) nivel = '🔵 Avançado';
         else if (precisao >= 70 && ppm >= 70) nivel = '🟢 Proficiente';
         else if (precisao >= 50 && ppm >= 40) nivel = '🟡 Em desenvolvimento';
         else nivel = '🔴 Inicial';
         
+        console.log('Debug Cálculo:', { acertos, tempoSegundos, ppm, precisao, totalPalavras: palavrasNormalizadas.length });
+
         document.getElementById('resultadoVelocidade').textContent = `${ppm} palavras/minuto`;
         document.getElementById('resultadoPrecisao').textContent = `${precisao}% de acertos`;
         document.getElementById('resultadoTempo').textContent = `${tempoTotal} segundos`;
@@ -548,7 +536,7 @@
         };
         
         recognition.onerror = (event) => {
-            console.error(event.error);
+            console.error('Erro no reconhecimento:', event.error);
             if (event.error === 'not-allowed') {
                 document.getElementById('statusMicrofone').innerHTML = '🔒 Permissão do microfone negada. Clique no ícone de cadeado e permita.';
             } else if (event.error === 'no-speech') {
@@ -578,7 +566,7 @@
     }
     
     function finalizar() {
-        limparRecursosAudio(); // Libera o microfone ao finalizar
+        limparRecursosAudio();
         if (window.opener && !window.opener.closed) {
             try {
                 window.opener.postMessage('atividade_concluida', '*');
@@ -668,7 +656,6 @@
         
         document.getElementById('btnComecar').onclick = async () => {
             try {
-                // Solicita microfone com filtros nativos de melhoria de áudio
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     audio: { 
                         echoCancellation: true, 
@@ -677,7 +664,6 @@
                     } 
                 });
                 
-                // Configura Web Audio API para o indicador de volume
                 if (!window.audioContext || window.audioContext.state === 'closed') {
                     window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 }
@@ -689,7 +675,6 @@
                 window.bufferLength = window.analyser.frequencyBinCount;
                 window.dataArray = new Uint8Array(window.bufferLength);
                 
-                // Inicia a animação do indicador de volume
                 checkVolume();
 
                 document.getElementById('telaInicial').classList.add('hidden');
@@ -710,13 +695,13 @@
             reiniciarJogo();
             document.getElementById('telaLeitura').classList.add('hidden');
             document.getElementById('telaInicial').classList.remove('hidden');
-            limparRecursosAudio(); // Libera o microfone ao cancelar
+            limparRecursosAudio();
         };
         
         document.getElementById('btnNovamente').onclick = () => {
             document.getElementById('telaResultado').classList.add('hidden');
             document.getElementById('telaInicial').classList.remove('hidden');
-            limparRecursosAudio(); // Libera o microfone ao voltar para tela inicial
+            limparRecursosAudio();
             reiniciarJogo();
         };
         
